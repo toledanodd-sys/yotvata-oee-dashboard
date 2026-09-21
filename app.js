@@ -153,15 +153,30 @@
       rerender();
     }
 
-    setStatus('wait', 'מתחבר…');
-    loadLiveSettings().then(function (live) {
-      var n = Object.keys(live).length;
-      window.__LIVE = live;
-      setStatus('ok', '● מחובר', 'מחובר למסד הנתונים — יעדים ומשקלים של ' + n + ' מכונות נטענו מהמסד');
-    }).catch(function () {
-      window.__LIVE = null;
-      setStatus('off', '● לא מחובר', 'אין חיבור למסד הנתונים — מוצגים ערכי ברירת מחדל');
-    }).then(start);
+    function refreshLive() {
+      setStatus('wait', 'מתחבר…');
+      return loadLiveSettings().then(function (live) {
+        var n = Object.keys(live).length;
+        window.__LIVE = live;
+        setStatus('ok', '● מחובר', 'מחובר למסד הנתונים — יעדים ומשקלים של ' + n + ' מכונות נטענו מהמסד');
+      }).catch(function () {
+        window.__LIVE = null;
+        setStatus('off', '● לא מחובר', 'אין חיבור למסד הנתונים — מוצגים ערכי ברירת מחדל');
+      });
+    }
+
+    // called by the settings screen after a change, so the dashboard shows the new targets/weights
+    window.__reloadDashboard = function () {
+      refreshLive().then(function () {
+        // the component keeps its own tab state; a fresh instance picks up the new live values
+        var prev = comp ? comp.state : null;
+        comp = new window.Component({});
+        if (prev) for (var k in prev) comp.state[k] = prev[k];
+        rerender();
+      });
+    };
+
+    refreshLive().then(start);
 
     // KPI tooltip: tap to open on touch screens (hover still works with a mouse)
     root.addEventListener('click', function (e) {
