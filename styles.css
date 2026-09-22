@@ -407,7 +407,33 @@ label.u-drop { box-sizing: border-box; }
 .pl-page .ev-time { font-weight: 700; font-variant-numeric: tabular-nums; }
 .pl-page .ev-dur { font-weight: 700; font-variant-numeric: tabular-nums; }
 .pl-page .ev-kind { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-inline-end: 6px; }
-  @media (max-width: 760px) { .st-grid, .sh-grid { grid-template-columns: 1fr; } .wf-row { grid-template-columns: 120px 1fr 80px; } }
+
+.pl-page .kpi-delta { font-size: 11.5px; font-weight: 700; margin-top: 4px; }
+.pl-page .trend-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; align-items: end; }
+.pl-page .trend-col { text-align: center; }
+.pl-page .trend-bar-wrap { position: relative; height: 150px; display: flex; align-items: flex-end; justify-content: center; }
+.pl-page .trend-bar { width: 58%; border-radius: 6px 6px 0 0; }
+.pl-page .trend-target { position: absolute; right: 0; left: 0; border-top: 2px dashed #B45309; }
+.pl-page .trend-val { font-size: 15px; font-weight: 700; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+.pl-page .trend-name { font-size: 11px; color: #8A8776; margin-top: 6px; }
+.pl-page .trend-delta { font-size: 11px; font-weight: 700; margin-top: 2px; }
+.pl-page .day-grid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 10px; align-items: end; }
+.pl-page .day-stack { height: 170px; display: flex; flex-direction: column-reverse; border-radius: 6px; overflow: hidden; background: #F4F2EC; }
+.pl-page .day-oee { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pl-page .day-name { font-size: 11px; color: #8A8776; margin-top: 6px; text-align: center; }
+.pl-page .day-head { text-align: center; margin-bottom: 4px; }
+.pl-page .var-row { display: grid; grid-template-columns: 150px 1fr 88px 88px; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px dashed #EFECE2; font-size: 12.5px; }
+.pl-page .var-track { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #F4F2EC; }
+.pl-page .chg { font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 8px; white-space: nowrap; }
+
+.pl-page .act-row { display: grid; grid-template-columns: minmax(0,1.6fr) 110px 120px 130px 150px; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px dashed #EFECE2; font-size: 12.5px; }
+.pl-page .act-head { font-size: 10.5px; color: #8A8776; font-weight: 700; border-bottom: 1px solid #14140F; }
+.pl-page .dow-grid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 10px; align-items: end; }
+.pl-page .dow-bar-wrap { height: 130px; display: flex; align-items: flex-end; justify-content: center; position: relative; }
+.pl-page .dow-bar { width: 62%; border-radius: 6px 6px 0 0; }
+.pl-page .dq-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+.pl-page .dq-card { border: 1px solid #EFECE2; border-radius: 12px; padding: 12px 14px; }
+.pl-page .dq-v { font-size: 22px; font-weight: 700; margin: 4px 0; }
 
 /* Process Lead screen on a phone: the wide tables drop their secondary columns */
 @media (max-width: 760px) {
@@ -427,3 +453,17 @@ label.u-drop { box-sizing: border-box; }
   .pl-page .par-desc, .pl-page .par-desc b, .pl-page .par-desc span { min-width: 0; overflow-wrap: anywhere; }
   .pl-page .rec-row { grid-template-columns: minmax(0,1fr) repeat(7, 22px) 56px; gap: 4px; }
 }
+@media (max-width: 760px) {
+  .pl-page .st-grid, .pl-page .sh-grid, .pl-page .dq-grid { grid-template-columns: 1fr; }
+  .pl-page .wf-row { grid-template-columns: 110px 1fr 84px; }
+  .pl-page .trend-grid, .pl-page .dow-grid { grid-template-columns: repeat(3, 1fr) !important; }
+  .pl-page .day-grid { grid-template-columns: repeat(4, 1fr); }
+  .pl-page .var-row { grid-template-columns: 110px 1fr 70px; }
+  .pl-page .var-row > :last-child { display: none; }
+  .pl-page .act-row { grid-template-columns: minmax(0,1fr) 78px 104px; }
+  .pl-page .act-row > :nth-child(4), .pl-page .act-row > :nth-child(5) { display: none; }
+  .pl-page .st-line, .pl-page .dq-card { min-width: 0; overflow-wrap: anywhere; }
+  .pl-page .trend-name { font-size: 10px; overflow-wrap: anywhere; }
+}
+.pl-page .dq-card .st-line { display: block; }
+.pl-page .dq-card .st-line span { white-space: normal; }

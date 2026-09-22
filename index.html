@@ -642,24 +642,22 @@
   </div>
   <div class="pbar">
     <div class="pseg" role="group" aria-label="תקופה">
-      <button class="pseg-btn" type="button" style="background: #1c2b45; color: #FFFFFF;">יום</button>
-      <button class="pseg-btn" type="button" style="opacity: 0.4; cursor: default;" title="בשלבי אפיון">שבוע</button>
-      <button class="pseg-btn" type="button" style="opacity: 0.4; cursor: default;" title="בשלבי אפיון">חודש</button>
+      <sc-for list="{{periods}}" as="p" hint-placeholder-count="3"><button class="pseg-btn" type="button" style="{{p.style}}" onClick="{{p.pick}}">{{p.label}}</button></sc-for>
     </div>
     <div class="pnav">
-      <button class="pnav-btn" type="button" aria-label="יום קודם" style="{{prevStyle}}" onClick="{{prevFn}}">→</button>
+      <button class="pnav-btn" type="button" aria-label="תקופה קודמת" style="{{prevStyle}}" onClick="{{prevFn}}">→</button>
       <span class="pnav-label">{{periodLabel}}</span>
-      <button class="pnav-btn" type="button" aria-label="יום הבא" style="{{nextStyle}}" onClick="{{nextFn}}">←</button>
+      <button class="pnav-btn" type="button" aria-label="תקופה הבאה" style="{{nextStyle}}" onClick="{{nextFn}}">←</button>
     </div>
     <span class="psrc" style="{{srcStyle}}">{{srcLabel}}</span>
   </div>
-  <div class="psrc-note">כרגע מוצג היום בלבד. שבוע וחודש יאופיינו בנפרד.</div>
+  <div class="psrc-note">{{srcNote}}</div>
   <div class="stat-row" style="margin-bottom: 22px;">
     <sc-for list="{{kpis}}" as="s" hint-placeholder-count="4">
-      <div class="card card-plant"><div class="l">{{s.l}}</div><div class="v">{{s.v}}</div><sc-if value="{{s.hasSub}}" hint-placeholder-val="{{false}}"><div class="card-sub">{{s.sub}}</div></sc-if><div class="n">{{s.n}}</div></div>
+      <div class="card card-plant"><div class="l">{{s.l}}</div><div class="v">{{s.v}}</div><sc-if value="{{s.hasSub}}" hint-placeholder-val="{{false}}"><div class="card-sub">{{s.sub}}</div></sc-if><div class="kpi-delta" style="{{s.deltaStyle}}">{{s.delta}}</div><div class="n">{{s.n}}</div></div>
     </sc-for>
   </div>
-  <div class="panel" style="margin-bottom: 16px;">
+  <sc-if value="{{isDay}}" hint-placeholder-val="{{true}}"><div class="panel" style="margin-bottom: 16px;">
     <div class="panel-title">ציר הזמן של היום — מה קרה ומתי</div>
     <div class="panel-sub">כל פס צבעוני הוא אירוע מדוח ה-RAW, לפי השעה. הקווים השחורים הם החלפות משמרת (07:00 / 15:00 / 23:00)</div>
     <div class="tl-shiftnames"><div>בוקר · 07:00 עד 15:00</div><div>ערב · 15:00 עד 23:00</div><div>לילה · 23:00 עד 07:00</div></div>
@@ -733,8 +731,176 @@
     </sc-for>
   </div>
 
-</div>
-</template>
+</sc-if><sc-if value="{{isWeek}}" hint-placeholder-val="{{false}}"><div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">מגמה — 4 השבועות האחרונים</div>
+    <div class="panel-sub">ממוצע ה-OEE היומי בכל שבוע, מול יעד 60%. מתחת לכל עמודה — השינוי מול השבוע שלפניו</div>
+    <div class="trend-grid">
+      <sc-for list="{{weeks}}" as="w" hint-placeholder-count="4">
+        <div class="trend-col">
+          <div class="trend-val">{{w.val}}</div>
+          <div class="trend-bar-wrap">
+            <div class="trend-target" style="{{w.targetStyle}}"></div>
+            <div class="trend-bar" style="{{w.barStyle}}"></div>
+          </div>
+          <div class="trend-name">{{w.name}}</div>
+          <div class="trend-delta" style="{{w.deltaStyle}}">{{w.delta}}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div class="panel-sub" style="margin-top: 12px;">{{trendNote}}</div>
+  </div>
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">יציבות בתוך השבוע — לאן הלך הזמן, יום אחרי יום</div>
+    <div class="panel-sub">מעל כל עמודה ה-OEE הרשמי של אותו יום. העמודה מראה את חלוקת הזמן: ייצור, לא מתוכנן (UPDT), מתוכנן (PDT) וזמן שלא נספר ב-OEE</div>
+    <div class="day-grid">
+      <sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+        <div>
+          <div class="day-head"><div class="day-oee" style="{{d.oeeStyle}}">{{d.oee}}</div></div>
+          <div class="day-stack">
+            <sc-for list="{{d.parts}}" as="p" hint-placeholder-count="4"><div style="{{p.style}}"></div></sc-for>
+          </div>
+          <div class="day-name">{{d.name}}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div class="leg">
+      <sc-for list="{{legend}}" as="l" hint-placeholder-count="4"><span class="leg-item"><span class="leg-sw" style="{{l.style}}"></span>{{l.name}}</span></sc-for>
+    </div>
+    <div class="panel-sub" style="margin-top: 10px;">{{stabilityNote}}</div>
+  </div>
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">פארטו הפסדים — השבוע, מול השבוע הקודם</div>
+    <div class="panel-sub">כמה זמן הלך על כל סיבה השבוע, והאם היא החמירה או השתפרה מול השבוע שעבר. כאן ה-PL רואה אם פעולה שנעשתה באמת עבדה</div>
+    <sc-for list="{{pareto}}" as="p" hint-placeholder-count="10">
+      <div class="par-row">
+        <div class="par-rank">{{p.rank}}</div>
+        <div class="par-desc"><b>{{p.desc}}</b><span>{{p.sub}}</span></div>
+        <div class="par-track"><div class="par-fill" style="{{p.fillStyle}}"></div><div class="par-cum" style="{{p.cumStyle}}"></div></div>
+        <div class="par-min">{{p.min}}</div>
+        <div><span class="chg" style="{{p.chgStyle}}">{{p.chg}}</span></div>
+      </div>
+    </sc-for>
+  </div>
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">הפסדים חוזרים — מגמה לאורך 4 שבועות</div>
+    <div class="panel-sub">כמה דקות הלכו על כל סיבה בכל שבוע. סיבה שנשארת גבוהה שבוע אחרי שבוע היא מועמדת ל-UPS; סיבה שיורדת מראה שהפעולה עבדה</div>
+    <div class="rec-row rec-head">
+      <div>סיבה · קבוצה</div>
+      <sc-for list="{{weekCols}}" as="w" hint-placeholder-count="4"><div style="text-align: center;">{{w}}</div></sc-for>
+      <div>סה"כ</div><div>מגמה</div>
+    </div>
+    <sc-for list="{{recurring}}" as="r" hint-placeholder-count="10">
+      <div class="rec-row">
+        <div class="par-desc"><b>{{r.desc}}</b><span>{{r.sub}}</span></div>
+        <sc-for list="{{r.cells}}" as="c" hint-placeholder-count="4"><div class="rec-cell" style="{{c.style}}">{{c.v}}</div></sc-for>
+        <div class="par-min">{{r.tot}}</div>
+        <div class="rec-tag" style="{{r.tagStyle}}">{{r.tag}}</div>
+      </div>
+    </sc-for>
+  </div>
+  <div class="panel">
+    <div class="panel-title">שונות בין משמרות — כל השבוע</div>
+    <div class="panel-sub">אותו קו, אותם מוצרים, שלוש משמרות. פער גדול בין המשמרות מצביע על הבדל בשיטת העבודה ולא על הציוד</div>
+    <sc-for list="{{shifts}}" as="s" hint-placeholder-count="3">
+      <div class="var-row">
+        <div><b>{{s.name}}</b></div>
+        <div class="var-track"><sc-for list="{{s.parts}}" as="p" hint-placeholder-count="4"><div style="{{p.style}}"></div></sc-for></div>
+        <div class="par-min">{{s.prod}}</div>
+        <div class="par-cumtxt">{{s.updt}}</div>
+      </div>
+    </sc-for>
+    <div class="panel-sub" style="margin-top: 10px;">{{shiftNote}}</div>
+  </div>
+
+</sc-if><sc-if value="{{isMonth}}" hint-placeholder-val="{{false}}"><div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">מגמה שבועית בתוך החודש</div>
+    <div class="panel-sub">ה-OEE הרשמי של כל שבוע בחודש, מול יעד 60%. כך רואים אם החודש הסתיים טוב או רק התחיל טוב</div>
+    <div class="trend-grid" style="grid-template-columns: repeat(5, minmax(0,1fr));">
+      <sc-for list="{{weeks}}" as="w" hint-placeholder-count="5">
+        <div class="trend-col">
+          <div class="trend-val">{{w.val}}</div>
+          <div class="trend-bar-wrap">
+            <div class="trend-target" style="{{w.targetStyle}}"></div>
+            <div class="trend-bar" style="{{w.barStyle}}"></div>
+          </div>
+          <div class="trend-name">{{w.name}}</div>
+          <div class="trend-delta" style="{{w.deltaStyle}}">{{w.delta}}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div class="panel-sub" style="margin-top: 12px;">{{trendNote}}</div>
+  </div>
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">עץ ההפסדים של החודש</div>
+    <div class="panel-sub">מהזמן שנספר ב-OEE ועד זמן הייצור האפקטיבי. כל שורה היא הפסד שנגרע, עם החלק שלו מהבסיס</div>
+    <sc-for list="{{waterfall}}" as="x" hint-placeholder-count="6">
+      <div class="wf-row">
+        <div><div class="wf-name">{{x.name}}</div><div class="wf-sub">{{x.sub}}</div></div>
+        <div class="wf-track"><div class="wf-bar" style="{{x.barStyle}}"></div></div>
+        <div class="wf-val">{{x.val}} <span class="wf-pct">{{x.pct}}</span></div>
+      </div>
+    </sc-for>
+    <div class="panel-sub" style="margin-top: 10px;">{{wfNote}}</div>
+  </div>
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">פארטו הפסדים — כל החודש</div>
+    <div class="panel-sub">מהגדול לקטן, עם מספר הימים שבהם הסיבה הופיעה. "ימים" מבדיל בין תקלה אחת ארוכה לבין בעיה שחוזרת כל יום</div>
+    <sc-for list="{{pareto}}" as="p" hint-placeholder-count="12">
+      <div class="par-row">
+        <div class="par-rank">{{p.rank}}</div>
+        <div class="par-desc"><b>{{p.desc}}</b><span>{{p.sub}}</span></div>
+        <div class="par-track"><div class="par-fill" style="{{p.fillStyle}}"></div><div class="par-cum" style="{{p.cumStyle}}"></div></div>
+        <div class="par-min">{{p.min}}</div>
+        <div class="par-cumtxt">{{p.cum}}</div>
+      </div>
+    </sc-for>
+  </div>
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">מועמדים לפעולה בחודש הבא</div>
+    <div class="panel-sub">לכל סיבה: כמה זמן היא לקחה, בכמה ימים היא הופיעה, וכמה נקודות זמינות אפשר להחזיר אם היא תיפתר לגמרי. החלוקה בין UPS ל-IPS היא לפי הפיזור: בעיה שחוזרת על פני ימים רבים מול אירוע חד-פעמי ארוך</div>
+    <div class="act-row act-head"><div>סיבה · תחנה</div><div>זמן בחודש</div><div>מספר ימים</div><div>פוטנציאל זמינות</div><div>המלצה</div></div>
+    <sc-for list="{{actions}}" as="a" hint-placeholder-count="8">
+      <div class="act-row">
+        <div class="par-desc"><b>{{a.desc}}</b><span>{{a.sub}}</span></div>
+        <div class="par-min">{{a.min}}</div>
+        <div>{{a.days}}</div>
+        <div class="par-min" style="color: #166534;">{{a.pot}}</div>
+        <div class="rec-tag" style="{{a.tagStyle}}">{{a.tag}}</div>
+      </div>
+    </sc-for>
+  </div>
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">דפוס לפי יום בשבוע</div>
+    <div class="panel-sub">ממוצע ה-OEE היומי בחודש, לפי יום בשבוע. דפוס קבוע מצביע על סיבה מערכתית — סידור עבודה, שטיפות, החלפות או כוח אדם — ולא על תקלה מקרית</div>
+    <div class="dow-grid">
+      <sc-for list="{{dow}}" as="d" hint-placeholder-count="7">
+        <div class="trend-col">
+          <div class="trend-val">{{d.val}}</div>
+          <div class="dow-bar-wrap">
+            <div class="trend-target" style="{{d.targetStyle}}"></div>
+            <div class="dow-bar" style="{{d.barStyle}}"></div>
+          </div>
+          <div class="trend-name">{{d.name}}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div class="panel-sub" style="margin-top: 12px;">{{dowNote}}</div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">אמינות הנתונים בחודש</div>
+    <div class="panel-sub">כמה מהחודש המערכת יודעת לסווג. ככל שהמספרים כאן קטנים יותר, ניתוח ההפסדים מדויק יותר</div>
+    <div class="dq-grid">
+      <sc-for list="{{dq}}" as="q" hint-placeholder-count="3">
+        <div class="dq-card">
+          <div class="l" style="font-size: 11px; color: #8A8776; font-weight: 600;">{{q.l}}</div>
+          <div class="dq-v" style="{{q.style}}">{{q.v}}</div>
+          <div class="st-line" style="border: none; padding: 0;"><span>{{q.n}}</span></div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+</sc-if></div></template>
 <script src="./api.js"></script>
 <script src="./router.js"></script>
 <script src="./engine.js"></script>
