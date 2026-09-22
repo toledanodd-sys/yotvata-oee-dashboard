@@ -463,6 +463,7 @@
       p_raw: p.events, p_oee: p.oeeRows, p_aliases: aliases
     }).then(function (res) {
       S.busy = false; S.stage = 'empty'; S.preview = null;
+      if (window.__reloadDashboard) window.__reloadDashboard();
       return loadData().then(function () {
         render();
         toast('הדוח ה' + TYPE_NAME[p.type] + ' נשמר ✓ — ' + (res.raw_rows || 0).toLocaleString('he-IL') + ' אירועים' + (res.replaced ? ' (החליף העלאה קודמת)' : ''));
@@ -488,6 +489,7 @@
       S.busy = true; render();
       API.rpc('delete_upload', { p_batch: S.confirmBatch }).then(function () {
         S.busy = false; S.confirmBatch = null;
+        if (window.__reloadDashboard) window.__reloadDashboard();
         return loadData().then(function () { render(); toast('הדוח נמחק ✓'); });
       }).catch(function (err) { S.busy = false; render(); toast(err.message || 'המחיקה נכשלה', true); });
     }

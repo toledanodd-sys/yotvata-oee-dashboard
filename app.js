@@ -151,6 +151,7 @@
     function start() {
       comp = new window.Component({});
       rerender();
+      comp.start();
     }
 
     function refreshLive() {
@@ -168,11 +169,8 @@
     // called by the settings screen after a change, so the dashboard shows the new targets/weights
     window.__reloadDashboard = function () {
       refreshLive().then(function () {
-        // the component keeps its own tab state; a fresh instance picks up the new live values
-        var prev = comp ? comp.state : null;
-        comp = new window.Component({});
-        if (prev) for (var k in prev) comp.state[k] = prev[k];
-        rerender();
+        // reload targets, weights, rules and uploaded data; the component keeps its period / tab state
+        if (comp) comp.start(); else start();
       });
     };
 

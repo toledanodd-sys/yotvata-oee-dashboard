@@ -1,631 +1,335 @@
+/* "מנהל ייצור" dashboard view-model — same outputs and chart logic as the approved canvas mockups
+ * (Main + Period selector), fed by the uploaded data (dashdata.js) instead of the mockup's sample day. */
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { view: 'home', selectedDept: null, shareView: 'dept', tdtView: 'machine', mtbfView: 'machine' };
+    this.state = { view: 'home', selectedDept: null, shareView: 'dept', tdtView: 'machine', mtbfView: 'machine',
+      period: 'day', keys: {}, model: null, loading: true, error: null, empty: false };
   }
 
-  goDrill(deptKey) {
-    return () => this.setState({ view: 'drill', selectedDept: deptKey });
+  // ----- data loading -----
+  start() {
+    const D = window.OEE_DASH;
+    return D.init().then((idx) => {
+      if (!idx.day.length && !idx.week.length && !idx.month.length) { this.setState({ loading: false, empty: true, model: null }); return; }
+      const keys = {};
+      const prevIdx = this.lastIdx || {};
+      ['day', 'week', 'month'].forEach((t) => {
+        // keep the period the user is looking at, unless it was the latest one — then follow the newest upload
+        const cur = this.state.keys[t], old = prevIdx[t] || [];
+        const wasLatest = !cur || cur === old[old.length - 1];
+        keys[t] = !wasLatest && idx[t].indexOf(cur) >= 0 ? cur : idx[t][idx[t].length - 1];
+      });
+      this.lastIdx = { day: idx.day.slice(), week: idx.week.slice(), month: idx.month.slice() };
+      this.state.keys = keys; this.state.empty = false;
+      return this.load();
+    }).catch((e) => this.setState({ loading: false, error: e.message || String(e) }));
   }
-  goHome() {
-    return () => this.setState({ view: 'home' });
+  load() {
+    const t = this.state.period, k = this.state.keys[t];
+    this.setState({ loading: true, error: null });
+    return window.OEE_DASH.loadPeriod(t, k).then((model) => {
+      if (this.state.period === t && this.state.keys[t] === k) this.setState({ model, loading: false });
+    }).catch((e) => this.setState({ loading: false, error: e.message || String(e) }));
   }
-  setShareView(v) {
-    return () => this.setState({ shareView: v });
+  pickPeriod(p) { return () => { if (this.state.period !== p) { this.state.period = p; this.state.view = 'home'; this.load(); } }; }
+  stepPeriod(dir) {
+    return () => {
+      const t = this.state.period, list = window.OEE_DASH.index()[t], i = list.indexOf(this.state.keys[t]);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= list.length) return;
+      this.state.keys[t] = list[j]; this.load();
+    };
   }
-  setTdtView(v) {
-    return () => this.setState({ tdtView: v });
-  }
-  setMtbfView(v) {
-    return () => this.setState({ mtbfView: v });
-  }
+
+  goDrill(deptKey) { return () => this.setState({ view: 'drill', selectedDept: deptKey }); }
+  goHome() { return () => this.setState({ view: 'home' }); }
+  setShareView(v) { return () => this.setState({ shareView: v }); }
+  setTdtView(v) { return () => this.setState({ tdtView: v }); }
+  setMtbfView(v) { return () => this.setState({ mtbfView: v }); }
 
   renderVals() {
-    const DEPTS = {
-      'קרטונים': {
-        color: '#B5651D',
-        stats: [
-          { l: '%TDT', v: '8.1%', n: 'זמן עצירות מתוך זמן כולל' },
-          { l: 'OEE', v: '66.7%', n: 'ישירות מדוח ה-OEE' },
-          { l: 'MTBF', v: '0:41', n: "זמן ייצור ÷ מס' תקלות (39)" },
-          { l: 'תפוקה (SAP טובים)', v: '100,808', n: 'יחידות טובות שנספרו ב-SAP' }
-        ],
-        machines: [
-          { name: 'איליג', stats: [
-            { l: '%TDT', v: '4.9%', n: 'זמן עצירות מתוך זמן כולל' },
-            { l: 'OEE', v: '58.1%', n: 'ישירות מדוח ה-OEE' },
-            { l: 'MTBF', v: '0:44', n: "זמן ייצור ÷ מס' תקלות (5)" },
-            { l: 'תפוקה (SAP טובים)', v: '9,548', n: 'יחידות טובות שנספרו ב-SAP' }
-          ]},
-          { name: 'טטרה', stats: [
-            { l: '%TDT', v: '6.1%', n: 'זמן עצירות מתוך זמן כולל' },
-            { l: 'OEE', v: '81.3%', n: 'ישירות מדוח ה-OEE' },
-            { l: 'MTBF', v: '0:39', n: "זמן ייצור ÷ מס' תקלות (14)" },
-            { l: 'תפוקה (SAP טובים)', v: '19,308', n: 'יחידות טובות שנספרו ב-SAP' }
-          ]},
-          { name: 'מרין', stats: [
-            { l: '%TDT', v: '11.6%', n: 'זמן עצירות מתוך זמן כולל' },
-            { l: 'OEE', v: '62.8%', n: 'ישירות מדוח ה-OEE' },
-            { l: 'MTBF', v: '0:41', n: "זמן ייצור ÷ מס' תקלות (20)" },
-            { l: 'תפוקה (SAP טובים)', v: '71,952', n: 'יחידות טובות שנספרו ב-SAP' }
-          ]}
-        ]
-      },
-      'בקבוקים': {
-        color: '#C9932E',
-        stats: [
-          { l: '%TDT', v: '21.2%', n: 'זמן עצירות מתוך זמן כולל' },
-          { l: 'OEE', v: '64.4%', n: 'ישירות מדוח ה-OEE' },
-          { l: 'MTBF', v: '0:31', n: "זמן ייצור ÷ מס' תקלות (61)" },
-          { l: 'תפוקה (SAP טובים)', v: '268,766', n: 'יחידות טובות שנספרו ב-SAP' }
-        ],
-        machines: [
-          { name: 'קומבי', stats: [
-            { l: '%TDT', v: '30.1%', n: 'זמן עצירות מתוך זמן כולל' },
-            { l: 'OEE', v: '53.9%', n: 'ישירות מדוח ה-OEE' },
-            { l: 'MTBF', v: '0:21', n: "זמן ייצור ÷ מס' תקלות (36)" },
-            { l: 'תפוקה (SAP טובים)', v: '154,272', n: 'יחידות טובות שנספרו ב-SAP' }
-          ]},
-          { name: 'מטריקס', stats: [
-            { l: '%TDT', v: '11.1%', n: 'זמן עצירות מתוך זמן כולל' },
-            { l: 'OEE', v: '76.3%', n: 'ישירות מדוח ה-OEE' },
-            { l: 'MTBF', v: '0:45', n: "זמן ייצור ÷ מס' תקלות (25)" },
-            { l: 'תפוקה (SAP טובים)', v: '114,494', n: 'יחידות טובות שנספרו ב-SAP' }
-          ]}
-        ]
-      },
-      'שקיות משקאות': {
-        color: '#4A7A6E',
-        stats: [
-          { l: '%TDT', v: '12.4%', n: 'זמן עצירות מתוך זמן כולל' },
-          { l: 'OEE', v: '30.6%', n: 'ישירות מדוח ה-OEE' },
-          { l: 'MTBF', v: '0:40', n: "זמן ייצור ÷ מס' תקלות (7)" },
-          { l: 'תפוקה (SAP טובים)', v: '7,425', n: 'יחידות טובות שנספרו ב-SAP' }
-        ],
-        machines: [
-          { name: 'טימון', stats: [
-            { l: '%TDT', v: '4.9%', n: 'זמן עצירות מתוך זמן כולל' },
-            { l: 'OEE', v: '34.1%', n: 'ישירות מדוח ה-OEE' },
-            { l: 'MTBF', v: '1:16', n: "זמן ייצור ÷ מס' תקלות (2)" },
-            { l: 'תפוקה (SAP טובים)', v: '4,185', n: 'יחידות טובות שנספרו ב-SAP' }
-          ]},
-          { name: 'פומבה', stats: [
-            { l: '%TDT', v: '20%', n: 'זמן עצירות מתוך זמן כולל' },
-            { l: 'OEE', v: '27.2%', n: 'ישירות מדוח ה-OEE' },
-            { l: 'MTBF', v: '0:26', n: "זמן ייצור ÷ מס' תקלות (5)" },
-            { l: 'תפוקה (SAP טובים)', v: '3,240', n: 'יחידות טובות שנספרו ב-SAP' }
-          ]}
-        ]
-      },
-      'כוכבים': {
-        color: null,
-        isZero: true,
-        stats: [
-          { l: '%TDT', v: '0%', n: 'זמן עצירות מתוך זמן כולל' },
-          { l: 'OEE', v: '0%', n: 'ישירות מדוח ה-OEE' },
-          { l: 'MTBF', v: '—', n: 'אין אירועי תקלה בתקופה' },
-          { l: 'תפוקה (SAP טובים)', v: '23,805', n: 'יחידות טובות שנספרו ב-SAP' }
-        ],
-        machines: [
-          { name: 'גלאקסי', stats: [
-            { l: '%TDT', v: '0%', n: 'זמן עצירות מתוך זמן כולל' },
-            { l: 'OEE', v: '0%', n: 'ישירות מדוח ה-OEE' },
-            { l: 'MTBF', v: '—', n: 'אין אירועי תקלה בתקופה' },
-            { l: 'תפוקה (SAP טובים)', v: '23,805', n: 'יחידות טובות שנספרו ב-SAP' }
-          ]}
-        ]
-      }
+    const st = this.state, M = st.model, period = st.period;
+    const D = window.OEE_DASH;
+    const WORD = { day: 'היום', week: 'השבוע', month: 'החודש' }[period];
+    const LAYER_NAME = { day: 'יומי', week: 'שבועי', month: 'חודשי' }[period];
+
+    const pct1 = (v) => (v === null || v === undefined ? '—' : (+v).toFixed(1) + '%');
+    const num = (v) => Math.round(v || 0).toLocaleString('en-US');
+    function formatK(v) { return (v / 1000).toFixed(1) + 'K'; }
+    function hm(min) {
+      if (min === null || min === undefined) return '—';
+      const r = Math.round(min), h = Math.floor(r / 60), mm = r % 60;
+      return h + ':' + (mm < 10 ? '0' : '') + mm;
+    }
+    function formatMin(min) {
+      const rounded = Math.round(min);
+      if (rounded >= 60) { const h = Math.floor(rounded / 60), mm = rounded % 60; return h + ':' + (mm < 10 ? '0' : '') + mm + ' שעות'; }
+      return rounded + ' דק\'';
+    }
+    function fmtQty(qty, unit) { return Math.round(qty).toLocaleString('en-US') + (unit ? ' ' + unit : ''); }
+    const gapLabel = (calc, off) => { const g = calc - off; return (g >= 0 ? '+' : '−') + Math.abs(g).toFixed(2) + ' נק\''; };
+
+    // ----- period selector -----
+    const PERIOD_DEFS = [{ key: 'day', label: 'יום' }, { key: 'week', label: 'שבוע' }, { key: 'month', label: 'חודש' }];
+    const periods = PERIOD_DEFS.map((p) => ({ label: p.label, style: p.key === period ? 'background: #1c2b45; color: #FFFFFF;' : '', pick: this.pickPeriod(p.key) }));
+    const idx = D.index();
+    const list = idx ? idx[period] : [];
+    const pos = list.indexOf(st.keys[period]);
+    const NAV_OFF = 'opacity: 0.35; cursor: default;';
+    const prevStyle = pos > 0 ? '' : NAV_OFF, nextStyle = pos >= 0 && pos < list.length - 1 ? '' : NAV_OFF;
+    const SRC_OFFICIAL = 'background: #DCFCE7; color: #166534;';
+    const SRC_CALC = 'background: #FEF3C7; color: #92400E;';
+    const SRC_WAIT = 'background: #F0EFEA; color: #5B594F;';
+
+    const base = {
+      isHome: st.view === 'home', isDrill: st.view === 'drill', periods, prevFn: this.stepPeriod(-1), nextFn: this.stepPeriod(1), prevStyle, nextStyle,
+      periodLabel: st.keys[period] ? D.cal.label(period, st.keys[period]) : '—',
+      shareView: st.shareView, onBack: this.goHome(),
+      setShareMachineFn: this.setShareView('machine'), setShareDeptFn: this.setShareView('dept'), setShareSkuFn: this.setShareView('sku'),
+      setTdtViewMachineFn: this.setTdtView('machine'), setTdtViewStationsFn: this.setTdtView('stations'),
+      setMtbfViewMachineFn: this.setMtbfView('machine'), setMtbfViewFaultsFn: this.setMtbfView('faults')
     };
+    const TAB_ACTIVE = 'background:#1c2b45;color:#fff;border-color:#1c2b45;';
+    const isShareMachine = st.shareView === 'machine', isShareSku = st.shareView === 'sku', isShareDept = !isShareMachine && !isShareSku;
+    const isTdtViewStations = st.tdtView === 'stations', isMtbfViewFaults = st.mtbfView === 'faults';
+    Object.assign(base, {
+      isShareMachine, isShareDept, isShareSku,
+      shareMachineTabStyle: isShareMachine ? TAB_ACTIVE : '', shareDeptTabStyle: isShareDept ? TAB_ACTIVE : '', shareSkuTabStyle: isShareSku ? TAB_ACTIVE : '',
+      isTdtViewMachine: !isTdtViewStations, isTdtViewStations,
+      tdtViewMachineTabStyle: !isTdtViewStations ? TAB_ACTIVE : '', tdtViewStationsTabStyle: isTdtViewStations ? TAB_ACTIVE : '',
+      isMtbfViewMachine: !isMtbfViewFaults, isMtbfViewFaults,
+      mtbfViewMachineTabStyle: !isMtbfViewFaults ? TAB_ACTIVE : '', mtbfViewFaultsTabStyle: isMtbfViewFaults ? TAB_ACTIVE : ''
+    });
 
-    const plantStats = [
-      { l: 'OEE', v: '58.4%', n: 'ישירות מדוח ה-OEE',
-        tt: { yest: '61.2%', yestDelta: '▼ 2.8 נק\' מאתמול', week: '59.5%', weekDelta: '▼ 1.1 נק\' מהממוצע' } },
-      { l: '%TDT', v: '17.5%', n: 'זמן עצירות מתוך זמן כולל',
-        tt: { yest: '14.9%', yestDelta: '▲ 2.6 נק\' מאתמול (החמרה)', week: '15.8%', weekDelta: '▲ 1.7 נק\' מהממוצע (החמרה)' } },
-      { l: 'תפוקה (SAP טובים)', v: '400,804', n: 'יחידות טובות שנספרו ב-SAP',
-        tt: { yest: '418,200', yestDelta: '▼ 4.2% מאתמול', week: '405,900', weekDelta: '▼ 1.3% מהממוצע' } },
-      { l: 'MTBF', v: '0:35', n: "זמן ייצור ÷ מס' תקלות (107)",
-        tt: { yest: '0:41', yestDelta: '▼ מאתמול (החמרה)', week: '0:38', weekDelta: '▼ מהממוצע (החמרה)' } }
-    ];
-
-    const alerts = [
-      {
-        level: 'crit',
-        title: 'קומבי (בקבוקים) — הפסד הנק\' הגדול ביותר מול היעד העצמי שלה',
-        detail: "OEE 53.9% מול יעד 60% שלה — 2.38 נק' OEE מפעלי אבודים היום, הגבוה ביותר מכל מכונה במפעל (אף שיש מכונות עם OEE נמוך יותר, המשקל הגדול של קומבי — 39% — הופך את זה לפגיעה הכי גדולה). הערכה: כ-17.5K יחידות פחות ביחס למה שהייתה מייצרת בקצב היעד (הערכה מבוססת יחס תפוקה/OEE, לא נמדד ישירות)"
-      },
-      {
-        level: 'crit',
-        title: 'גלאקסי (כוכבים) — ללא ייצור היום',
-        detail: "OEE 0% מול יעד 35% שלה → 2.10 נק' OEE מפעלי אבודים, השני בגודלו. קודם לבדוק אם זו עצירה מתוכננת/סידור עבודה ולא תקלה"
-      },
-      {
-        level: 'warn',
-        title: 'שקיות משקאות — כל האגף מתחת ליעד, לא רק מכונה בודדת',
-        detail: "גם טימון (34.1% מול יעד 55%) וגם פומבה (27.2% מול יעד 55%) מתחת ליעד שלהן. כששני קווי הייצור באגף חורגים ביחד, כדאי לבדוק גורם משותף (כוח אדם, חומר גלם, משמרת) ולא רק תקלת ציוד נקודתית"
-      }
-    ];
-
-    const ALERT_COLORS = {
-      crit: { row: '#FEF2F2', dot: '#DC2626' },
-      warn: { row: '#FFFBEB', dot: '#D97706' },
-      info: { row: '#F1F5F9', dot: '#475569' }
-    };
-
-    const alertsOut = alerts.map((a) => ({
-      title: a.title,
-      detail: a.detail,
-      rowStyle: 'background:' + ALERT_COLORS[a.level].row + ';',
-      dotStyle: 'background:' + ALERT_COLORS[a.level].dot + ';'
-    }));
-
-    const DEPT_COLOR = {
-      'בקבוקים': '#2a78d6',
-      'קרטונים': '#eb6834',
-      'שקיות משקאות': '#1baf7a',
-      'כוכבים': '#eda100'
-    };
-
-    const MACHINES = [
-      { name: 'קומבי', dept: 'בקבוקים', oee: 53.9, oeeTarget: 60, output: 154272, outputShare: 38.49, contribution: 21.03, weight: 39, tdt: 30.1, mtbfHours: 0.35, mtbfLabel: '0:21' },
-      { name: 'מטריקס', dept: 'בקבוקים', oee: 76.3, oeeTarget: 60, output: 114494, outputShare: 28.57, contribution: 25.93, weight: 34, tdt: 11.1, mtbfHours: 0.75, mtbfLabel: '0:45' },
-      { name: 'מרין', dept: 'קרטונים', oee: 62.7, oeeTarget: 50, output: 71952, outputShare: 17.95, contribution: 3.76, weight: 6, tdt: 11.6, mtbfHours: 0.6833, mtbfLabel: '0:41' },
-      { name: 'טטרה', dept: 'קרטונים', oee: 81.3, oeeTarget: 62, output: 19308, outputShare: 4.82, contribution: 3.25, weight: 4, tdt: 6.1, mtbfHours: 0.65, mtbfLabel: '0:39' },
-      { name: 'איליג', dept: 'קרטונים', oee: 58.1, oeeTarget: 50, output: 9548, outputShare: 2.38, contribution: 2.32, weight: 4, tdt: 4.9, mtbfHours: 0.7333, mtbfLabel: '0:44' },
-      { name: 'טימון', dept: 'שקיות משקאות', oee: 34.1, oeeTarget: 55, output: 4185, outputShare: 1.04, contribution: 1.19, weight: 3.5, tdt: 4.9, mtbfHours: 1.2667, mtbfLabel: '1:16' },
-      { name: 'פומבה', dept: 'שקיות משקאות', oee: 27.2, oeeTarget: 55, output: 3240, outputShare: 0.81, contribution: 0.95, weight: 3.5, tdt: 20.0, mtbfHours: 0.4333, mtbfLabel: '0:26' },
-      { name: 'גלאקסי', dept: 'כוכבים', oee: 0.0, oeeTarget: 35, output: 23805, outputShare: 5.94, contribution: 0.00, weight: 6, tdt: 0.0, mtbfHours: null, mtbfLabel: '—' }
-    ];
-
-    if (window.__LIVE) {
-      MACHINES.forEach((m) => {
-        const l = window.__LIVE[m.name];
-        if (l) { m.oeeTarget = l.target; m.weight = l.weight; m.contribution = +(m.weight * m.oee / 100).toFixed(2); }
+    if (!M) {
+      let msg = 'טוען נתונים…', note = '';
+      if (st.error) { msg = 'שגיאה בטעינה'; note = 'לא הצלחנו לקרוא את הנתונים מהמסד: ' + st.error; }
+      else if (st.empty) { msg = 'עדיין לא הועלו דוחות'; note = 'אחרי שיועלה הדוח היומי הראשון (אייקון ההעלאה, למנהל בלבד), הנתונים יופיעו כאן.'; }
+      const dash = { l: '', v: '—', n: '', hasSrc: false, src: '', tt: { prevLabel: '', avgLabel: '', yest: '—', yestDelta: '', week: '—', weekDelta: '' } };
+      return Object.assign(base, {
+        showBanner: st.empty || !!st.error, bannerText: note, srcLabel: msg, srcStyle: SRC_WAIT, srcNote: st.empty ? '' : note,
+        plantStats: ['OEE', '%TDT', 'תפוקה (SAP טובים)', 'MTBF'].map((l) => Object.assign({}, dash, { l })),
+        alerts: [], oeeChart: [], tdtChart: [], mtbfChart: [], outputCombinedChart: [], outputCombinedDeptPie: [], productionSkuList: [],
+        tdtStationFaults: [], mtbfTop3Faults: [], contributionBulletChart: [], depts: [], drillDeptName: '', drillMachines: []
       });
     }
 
-    const plantOeeTargetWeighted = MACHINES.reduce((sum, m) => sum + m.weight * m.oeeTarget, 0) / 100;
-    plantStats[0].n = plantStats[0].n + ' · יעד מפעלי משוקלל (כל מכונה בדיוק ביעד שלה): ' + plantOeeTargetWeighted.toFixed(1) + '%';
+    const MACHINES = M.machines;
+    const official = M.official;
+    const P = M.plant;
+    const DEPT_COLOR = {};
+    M.depts.forEach((d) => { DEPT_COLOR[d.name] = d.color || '#9D9D9D'; });
 
+    // ----- source badge and note -----
+    let srcLabel, srcStyle, srcNote;
+    if (official) {
+      srcLabel = 'רשמי · דוח ' + LAYER_NAME + ' מה-MES';
+      srcStyle = SRC_OFFICIAL;
+      srcNote = period === 'day'
+        ? 'המספר הגדול הוא הרשמי מה-MES. מתחתיו — החישוב הפנימי והפער, לבדיקת אמינות.'
+        : 'דוח ' + LAYER_NAME + ' רשמי — לא סכום של הדוחות היומיים. אירועים שחוצים את 07:00 נספרים בו בשלמותם, ולכן הוא יכול להיות שונה מעט מהיומיים.';
+    } else {
+      srcLabel = 'מחושב · הדוח ה' + LAYER_NAME + ' עוד לא הועלה';
+      srcStyle = SRC_CALC;
+      srcNote = (period === 'week' ? 'שבוע ייצור הוא שבת–שישי, ומספור השבועות כמו בטבלת Date_Dim בקובץ המאסטר. ' : '') +
+        'עד שמעלים את הדוח ה' + LAYER_NAME + ' מה-MES, המספרים מחושבים מהדוחות היומיים לפי הנוסחה (זמינות × יעילות × איכות). כשהדוח הרשמי עולה — הוא מחליף אותם אוטומטית. ' +
+        'הועלו ' + M.daysUploaded + ' מתוך ' + M.daysTotal + ' ימים בתקופה.';
+    }
+
+    // ----- plant KPI cards -----
+    const plantOeeTargetWeighted = MACHINES.reduce((s, m) => s + m.weight * m.oeeTarget, 0) / 100;
+    const H = M.history || [];
+    const prevH = H[0] || {};
+    const avg = (k) => { const v = H.map((h) => h[k]).filter((x) => x !== null && x !== undefined); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+    const TT = { day: ['אתמול', 'ממוצע 7 ימים', 'מאתמול'], week: ['שבוע קודם', 'ממוצע 4 שבועות', 'משבוע קודם'], month: ['חודש קודם', 'ממוצע 3 חודשים', 'מחודש קודם'] }[period];
+    function ptsDelta(cur, ref, word, worseWhenUp) {
+      if (cur === null || ref === null || cur === undefined || ref === undefined) return '';
+      const d = cur - ref, up = d > 0;
+      if (Math.abs(d) < 0.05) return 'ללא שינוי ' + word;
+      const worse = worseWhenUp ? up : !up;
+      return (up ? '▲ ' : '▼ ') + Math.abs(d).toFixed(1) + ' נק\' ' + word + (worse && worseWhenUp ? ' (החמרה)' : '');
+    }
+    function relDelta(cur, ref, word) {
+      if (!ref || cur === null || cur === undefined) return '';
+      const d = (cur - ref) / ref * 100;
+      return (d >= 0 ? '▲ ' : '▼ ') + Math.abs(d).toFixed(1) + '% ' + word;
+    }
+    function mtbfDelta(cur, ref, word) {
+      if (cur === null || ref === null || cur === undefined || ref === undefined) return '';
+      if (Math.round(cur) === Math.round(ref)) return 'ללא שינוי ' + word;
+      return cur > ref ? '▲ ' + word + ' (שיפור)' : '▼ ' + word + ' (החמרה)';
+    }
+    const tt = (cur, k, fmtV, deltaFn, worseUp) => {
+      const a = avg(k);
+      return { prevLabel: TT[0], avgLabel: TT[1], yest: fmtV(prevH[k]), week: fmtV(a),
+        yestDelta: deltaFn(cur, prevH[k], TT[2], worseUp), weekDelta: deltaFn(cur, a, 'מהממוצע', worseUp) };
+    };
+    const fmtNum = (v) => (v === null || v === undefined ? '—' : num(v));
+    const fmtHm = (v) => (v === null || v === undefined ? '—' : hm(v));
+
+    const pc = P.calc;
+    let oeeSrc, tdtSrc;
+    const partialTxt = () => 'חלקי (' + pc.names.join(', ') + ' בלבד, ' + Math.round(pc.share) + '% ממשקל המפעל), לכן לא בר השוואה לרשמי';
+    const reasonTxt = () => {
+      const r = [];
+      if (M.dq.unclassified) r.push(M.dq.unclassified + ' אירועים לא מסווגים');
+      if (M.dq.missingRates.length) r.push('חסרים קצבי מטרה (' + M.dq.missingRates.join(', ') + ')');
+      return r.length ? r.join(' · ') : 'אין מספיק נתונים';
+    };
+    const plantStats = [];
+    if (official) {
+      if (pc.oee === null) oeeSrc = 'מחושב: לא ניתן — ' + reasonTxt();
+      else if (pc.partial) oeeSrc = 'מחושב: ' + pct1(pc.oee) + ' — ' + partialTxt();
+      else oeeSrc = 'מחושב: ' + pct1(pc.oee) + ' · פער ' + (P.oeeOff === null ? '—' : gapLabel(pc.oee, P.oeeOff));
+      tdtSrc = pc.tdt === null ? 'TDT מחושב: ממתין להגדרת "נכנס ל-TDT" בכללי הסיווג'
+        : 'TDT מחושב: ' + pct1(pc.tdt) + ' · פער ' + (P.tdtOff === null ? '—' : gapLabel(pc.tdt, P.tdtOff));
+      plantStats.push({ l: 'OEE', v: pct1(P.oee), n: 'ישירות מדוח ה-OEE · יעד מפעלי משוקלל (כל מכונה בדיוק ביעד שלה): ' + plantOeeTargetWeighted.toFixed(1) + '%', hasSrc: true, src: oeeSrc, tt: tt(P.oee, 'oee', pct1, ptsDelta, false) });
+      plantStats.push({ l: '%TDT', v: pct1(P.tdt), n: 'זמן עצירות מתוך זמן כולל', hasSrc: true, src: tdtSrc, tt: tt(P.tdt, 'tdt', pct1, ptsDelta, true) });
+      plantStats.push({ l: 'תפוקה (SAP טובים)', v: num(P.output), n: 'יחידות טובות שנספרו ב-SAP', hasSrc: false, src: '', tt: tt(P.output, 'output', fmtNum, relDelta) });
+    } else {
+      const oeeN = pc.oee === null ? 'לא ניתן לחשב — ' + reasonTxt()
+        : pc.partial ? 'מחושב חלקי — ' + pc.names.join(', ') + ' בלבד (' + Math.round(pc.share) + '% ממשקל המפעל) · ' + reasonTxt()
+        : 'מחושב לפי הנוסחה · יעד מפעלי משוקלל: ' + plantOeeTargetWeighted.toFixed(1) + '%';
+      plantStats.push({ l: 'OEE', v: pct1(pc.oee), n: oeeN, hasSrc: true, src: 'יוחלף במספר הרשמי כשהדוח ה' + LAYER_NAME + ' יועלה', tt: tt(pc.oee, 'oee', pct1, ptsDelta, false) });
+      plantStats.push({ l: '%TDT', v: pct1(pc.tdt), n: pc.tdt === null ? 'TDT מחושב ממתין להגדרת "נכנס ל-TDT" בכללי הסיווג' : 'מחושב מהאירועים', hasSrc: false, src: '', tt: tt(pc.tdt, 'tdt', pct1, ptsDelta, true) });
+      plantStats.push({ l: 'תפוקה (SAP טובים)', v: num(P.output), n: 'סכום SAP טובים מהדוחות היומיים שעלו (' + M.daysUploaded + ' מתוך ' + M.daysTotal + ' ימים)', hasSrc: false, src: '', tt: tt(P.output, 'output', fmtNum, relDelta) });
+    }
+    plantStats.push({ l: 'MTBF', v: hm(P.mtbfMin), n: 'זמן ייצור ÷ מס\' תקלות (' + P.fails + ')', hasSrc: false, src: '', tt: tt(P.mtbfMin, 'mtbf', fmtHm, mtbfDelta) });
+
+    // ----- alerts: plant OEE points lost vs each machine's own target (weight × (target − actual)) -----
+    const alerts = [];
+    const withOee = MACHINES.filter((m) => m.oee !== null);
+    const lost = withOee.map((m) => ({ m, lost: m.weight * (m.oeeTarget - m.oee) / 100 })).filter((x) => x.lost > 0).sort((a, b) => b.lost - a.lost);
+    const noProd = MACHINES.filter((m) => m.oeeTarget > 0 && m.output === 0 && (m.oee === null || m.oee === 0));
+    const worst = lost.filter((x) => noProd.indexOf(x.m) < 0)[0];
+    if (worst) {
+      alerts.push({ level: 'crit', title: worst.m.name + ' (' + worst.m.dept + ') — הפסד הנק\' הגדול ביותר מול היעד העצמי שלה',
+        detail: 'OEE ' + pct1(worst.m.oee) + ' מול יעד ' + worst.m.oeeTarget + '% שלה — ' + worst.lost.toFixed(2) + ' נק\' OEE מפעלי אבודים ' + WORD + ', הגבוה ביותר מכל מכונה במפעל (משקל ' + worst.m.weight + '%)' });
+    }
+    noProd.slice(0, 2).forEach((m) => {
+      const l = m.weight * m.oeeTarget / 100;
+      alerts.push({ level: 'crit', title: m.name + ' (' + m.dept + ') — ללא ייצור ' + WORD,
+        detail: 'OEE 0% מול יעד ' + m.oeeTarget + '% שלה → ' + l.toFixed(2) + ' נק\' OEE מפעלי אבודים. קודם לבדוק אם זו עצירה מתוכננת/סידור עבודה ולא תקלה' });
+    });
+    M.depts.forEach((d) => {
+      const ms = d.machines.filter((m) => m.oee !== null && m.output > 0);
+      if (ms.length >= 2 && ms.every((m) => m.oee < m.oeeTarget)) {
+        alerts.push({ level: 'warn', title: d.name + ' — כל האגף מתחת ליעד, לא רק מכונה בודדת',
+          detail: ms.map((m) => m.name + ' (' + pct1(m.oee) + ' מול יעד ' + m.oeeTarget + '%)').join(' וגם ') + ' מתחת ליעד שלהן. כשכל קווי הייצור באגף חורגים ביחד, כדאי לבדוק גורם משותף (כוח אדם, חומר גלם, משמרת) ולא רק תקלת ציוד נקודתית' });
+      }
+    });
+    const second = lost.filter((x) => x !== worst && noProd.indexOf(x.m) < 0)[0];
+    if (second && alerts.length < 4) {
+      alerts.push({ level: 'warn', title: second.m.name + ' (' + second.m.dept + ') — מתחת ליעד',
+        detail: 'OEE ' + pct1(second.m.oee) + ' מול יעד ' + second.m.oeeTarget + '% — ' + second.lost.toFixed(2) + ' נק\' OEE מפעלי אבודים ' + WORD });
+    }
+    if (M.dq.unclassified || M.dq.missingRates.length) {
+      alerts.push({ level: 'info', title: 'איכות נתונים — החישוב הפנימי חלקי',
+        detail: reasonTxt() + '. אפשר להשלים ב"הגדרות מערכת" (כללי סיווג / מוצרים וקצב מטרה), והחישוב יתעדכן. המספרים הרשמיים לא מושפעים' });
+    }
+    if (!alerts.length) alerts.push({ level: 'info', title: 'כל המכונות עמדו ביעד ' + WORD, detail: 'אין מכונה שה-OEE שלה מתחת ליעד העצמי שלה' });
+    const ALERT_COLORS = { crit: { row: '#FEF2F2', dot: '#DC2626' }, warn: { row: '#FFFBEB', dot: '#D97706' }, info: { row: '#F1F5F9', dot: '#475569' } };
+    const alertsOut = alerts.slice(0, 5).map((a) => ({ title: a.title, detail: a.detail,
+      rowStyle: 'background:' + ALERT_COLORS[a.level].row + ';', dotStyle: 'background:' + ALERT_COLORS[a.level].dot + ';' }));
+
+    // ----- charts (same logic as the mockup; a missing value shows "—" with an empty bar) -----
     function buildBarChart(getVal, getLabel, opts) {
       opts = opts || {};
       let list = MACHINES.slice();
-      if (opts.sortDesc) {
-        list = list.sort((a, b) => getVal(b) - getVal(a));
-      }
-      const vals = list.map(getVal);
-      const max = Math.max.apply(null, vals);
+      const v = (m) => { const x = getVal(m); return x === null || x === undefined ? null : x; };
+      if (opts.sortDesc) list = list.sort((a, b) => (v(b) === null ? -1 : v(b)) - (v(a) === null ? -1 : v(a)));
+      const vals = list.map(v).filter((x) => x !== null).concat(opts.getTarget ? list.map(opts.getTarget) : []);
+      const max = Math.max.apply(null, vals.concat([0.0001]));
       return list.map((m) => {
+        const x = v(m);
         let color = opts.fixedColor || DEPT_COLOR[m.dept];
-        if (opts.perMachineColor) {
-          color = MACHINE_COLOR[m.name];
-        }
-        if (opts.getTarget) {
-          color = (getVal(m) >= opts.getTarget(m)) ? '#16A34A' : '#DC2626';
-        }
-        const out = {
-          name: m.name,
-          valueLabel: getLabel(getVal(m)),
-          barHeight: Math.round((getVal(m) / max) * 120) + 'px',
-          colorStyle: 'background:' + color + ';'
-        };
-        if (opts.getTarget) {
-          out.targetHeight = Math.round((opts.getTarget(m) / max) * 120) + 'px';
-        }
+        if (opts.getTarget && x !== null) color = x >= opts.getTarget(m) ? '#16A34A' : '#DC2626';
+        const out = { name: m.name, valueLabel: x === null ? '—' : getLabel(x), barHeight: x === null ? '0px' : Math.round((x / max) * 120) + 'px', colorStyle: 'background:' + color + ';' };
+        if (opts.getTarget) out.targetHeight = Math.round((opts.getTarget(m) / max) * 120) + 'px';
         return out;
       });
     }
+    const oeeChart = buildBarChart((m) => m.oee, (x) => x.toFixed(1) + '%', { sortDesc: true, fixedColor: '#3B77A8', getTarget: (m) => m.oeeTarget });
+    const tdtChart = buildBarChart((m) => m.tdt, (x) => x.toFixed(1) + '%', { sortDesc: true, fixedColor: '#3B77A8' });
 
-    const MACHINE_COLOR = {
-      'קומבי': '#4E79A7',
-      'מטריקס': '#F28E2B',
-      'מרין': '#9C755F',
-      'טטרה': '#B07AA1',
-      'איליג': '#76B7B2',
-      'טימון': '#EDC948',
-      'פומבה': '#FF9DA7',
-      'גלאקסי': '#9D9D9D'
-    };
-
-    const oeeChart = buildBarChart((m) => m.oee, (v) => v.toFixed(1) + '%', { sortDesc: true, fixedColor: '#3B77A8', getTarget: (m) => m.oeeTarget });
-    const tdtChart = buildBarChart((m) => m.tdt, (v) => v.toFixed(1) + '%', { sortDesc: true, fixedColor: '#3B77A8' });
-
-    // תחנות שבהן נרשמו עצירות מסוג "תקלה" בלבד (סטטוס בדוח RAW) לכל מכונה — לא סטטוסים
-    // אחרים כמו הפסקה/המתנה/סט-אפ/זמן ניהולי. מס' דקות מצטבר ומס' אירועים לכל תחנה,
-    // מתוך RAW_Fact בפועל (stopGroupStations['תקלה'] במנוע הצבירה).
-    const MACHINE_STATION_FAULTS = {
-      'קומבי': [
-        { station: 'מכונת מילוי', min: 167.7, count: 11 },
-        { station: 'מדפסת imaje פג תוקף', min: 103.3, count: 3 },
-        { station: 'אלפא', min: 55.78, count: 9 },
-        { station: 'ניפוח', min: 49.38, count: 11 },
-        { station: 'מסועים', min: 10.82, count: 1 },
-        { station: 'פלטייזר: רובוט (FANUC)', min: 1.93, count: 1 }
-      ],
-      'מטריקס': [
-        { station: 'ניפוח-קו מטריקס', min: 59.58, count: 9 },
-        { station: 'מכונת מילוי- קו מטריקס', min: 40.15, count: 9 },
-        { station: 'סרמקס-קו מטריקס', min: 15.9, count: 1 },
-        { station: 'קו מטריקס - FUJI', min: 15.03, count: 3 },
-        { station: 'פיקוק', min: 13.9, count: 1 },
-        { station: 'קולוס פג תוקף-מטריקס', min: 6.82, count: 1 },
-        { station: 'פלטייזר - ממשטח-קו מטריקס', min: 6.5, count: 1 }
-      ],
-      'מרין': [
-        { station: 'מכונת ניפוח ONE BLOW', min: 36.75, count: 5 },
-        { station: 'מסועי קו מרין', min: 35.42, count: 1 },
-        { station: 'תוויות GERNEP', min: 24.15, count: 5 },
-        { station: 'ניפוח מרין', min: 16.42, count: 5 },
-        { station: 'עוטפת מרין/לנה', min: 11.15, count: 1 },
-        { station: 'רובוט - מרין', min: 4.95, count: 3 }
-      ],
-      'טטרה': [
-        { station: 'מפוקק', min: 24.07, count: 7 },
-        { station: 'מכונת מילוי', min: 12.53, count: 6 },
-        { station: 'אורז קרטון', min: 6.35, count: 1 }
-      ],
-      'איליג': [
-        { station: 'מסועי קו איליג', min: 10.52, count: 4 },
-        { station: 'אורז - איליג', min: 1.35, count: 1 }
-      ],
-      'טימון': [
-        { station: '(ללא תחנה)', min: 13.23, count: 2 }
-      ],
-      'פומבה': [
-        { station: 'פומבה', min: 31.67, count: 1 },
-        { station: '(ללא תחנה)', min: 22.42, count: 4 }
-      ],
-      'גלאקסי': []
-    };
-
-    function formatMin(min) {
-      const rounded = Math.round(min);
-      if (rounded >= 60) {
-        const h = Math.floor(rounded / 60), mm = rounded % 60;
-        return h + ':' + (mm < 10 ? '0' : '') + mm + ' שעות';
-      }
-      return rounded + ' דק\'';
-    }
-
-    function buildTdtStationFaults() {
-      const sorted = MACHINES.slice().sort((a, b) => b.tdt - a.tdt);
-      return sorted.map((m) => {
-        const stations = (MACHINE_STATION_FAULTS[m.name] || []).slice().sort((a, b) => b.min - a.min).slice(0, 3);
-        return {
-          name: m.name,
-          tdtLabel: 'TDT ' + m.tdt.toFixed(1) + '%',
-          isEmpty: stations.length === 0,
-          stations: stations.map((s) => ({
-            station: s.station,
-            durLabel: formatMin(s.min),
-            countLabel: s.count === 1 ? 'עצירה אחת' : s.count + ' עצירות'
-          }))
-        };
-      });
-    }
-    const tdtStationFaults = buildTdtStationFaults();
-
-    function buildMtbfChart() {
-      const sorted = MACHINES.slice().sort((a, b) => {
-        if (a.mtbfHours === null) return 1;
-        if (b.mtbfHours === null) return -1;
-        return a.mtbfHours - b.mtbfHours;
-      });
-      const withData = sorted.filter((m) => m.mtbfHours !== null);
-      const maxHours = Math.max.apply(null, withData.map((m) => m.mtbfHours));
-      return sorted.map((m) => {
-        if (m.mtbfHours === null) {
-          return { name: m.name, valueLabel: 'אין תקלות', barHeight: '3px', colorStyle: 'background:#D8D5C8;' };
-        }
-        return {
-          name: m.name,
-          valueLabel: m.mtbfLabel,
-          barHeight: Math.max(Math.round((m.mtbfHours / maxHours) * 120), 4) + 'px',
-          colorStyle: 'background:#3B77A8;'
-        };
-      });
-    }
-    const mtbfChart = buildMtbfChart();
-
-    // תיאורי תקלה בפועל לכל מכונה — סטטוס "תקלה" בלבד מדוח RAW, עם מספר המופעים (count),
-    // משך מצטבר (min) והתחנה שבה נרשם התיאור (station, מתוך stopGroupStationDetail['תקלה']).
-    // שלושת התיאורים עם הכי הרבה מופעים = TOP 3 להצגה.
-    const MACHINE_FAULT_DESCRIPTIONS = {
-      'קומבי': [
-        { desc: 'מבחנה שבורה נתקעה בסורטר', station: 'ניפוח', count: 10, min: 30.98 },
-        { desc: 'תקלה באקומולצית חיישנים מערך פיקוק', station: 'מכונת מילוי', count: 8, min: 38.28 },
-        { desc: 'בעיה בזיהוי קו עין', station: 'אלפא', count: 6, min: 36.75 },
-        { desc: 'תקלת חשמל', station: 'מדפסת imaje פג תוקף', count: 2, min: 18.40 },
-        { desc: 'תקלה ביחידת מחסנית תוויות', station: 'אלפא', count: 2, min: 16.78 }
-      ],
-      'מטריקס': [
-        { desc: 'תקלת חיישנים', station: 'קו מטריקס - FUJI', count: 4, min: 20.38 },
-        { desc: 'תקלה בסורטר מבחנות', station: 'ניפוח-קו מטריקס', count: 4, min: 13.28 },
-        { desc: 'מילוי לא תקין', station: 'מכונת מילוי- קו מטריקס', count: 3, min: 9.75 },
-        { desc: 'תקלה במהפך דולבים', station: 'ניפוח-קו מטריקס', count: 2, min: 25.13 },
-        { desc: 'תקלה מערכת חיישנים', station: 'מכונת מילוי- קו מטריקס', count: 2, min: 16.73 }
-      ],
-      'מרין': [
-        { desc: 'תבנית 1', station: 'מכונת ניפוח ONE BLOW', count: 5, min: 36.75 },
-        { desc: 'מכונת ניפוח ONE BLOW', station: 'ניפוח מרין', count: 5, min: 16.42 },
-        { desc: 'אחר', station: 'רובוט - מרין', count: 4, min: 16.10 },
-        { desc: 'שולחן', station: 'תוויות GERNEP', count: 3, min: 20.93 }
-      ],
-      'טטרה': [
-        { desc: 'משיכת קרטון לא עובדת', station: 'אורז קרטון', count: 2, min: 7.48 },
-        { desc: 'קלאץ\' לא במקום', station: 'מפוקק', count: 2, min: 3.65 },
-        { desc: 'מערכת חימום בלאוור תקולה', station: 'מפוקק', count: 2, min: 2.87 }
-      ],
-      'איליג': [
-        { desc: 'מסוע לא עובד', station: 'מסועי קו איליג', count: 3, min: 8.05 },
-        { desc: 'תקלה במערכת שוטרים', station: 'מסועי קו איליג', count: 1, min: 2.47 },
-        { desc: 'תקלה במסוע הזנת גביעים', station: 'אורז - איליג', count: 1, min: 1.35 }
-      ],
-      'טימון': [
-        { desc: 'עצירה לא מוסברת', station: '(ללא תחנה)', count: 2, min: 13.23 }
-      ],
-      'פומבה': [
-        { desc: 'עצירה לא מוסברת', station: '(ללא תחנה)', count: 4, min: 22.42 },
-        { desc: 'אחר', station: 'פומבה', count: 1, min: 31.67 }
-      ],
-      'גלאקסי': []
-    };
-
-    function mtbfSortCompare(a, b) {
-      if (a.mtbfHours === null) return 1;
-      if (b.mtbfHours === null) return -1;
-      return a.mtbfHours - b.mtbfHours;
-    }
-
-    const VAGUE_FAULT_DESCS = ['אחר', 'עצירה לא מוסברת'];
-
-    function buildMtbfTop3Faults() {
-      const sorted = MACHINES.slice().sort(mtbfSortCompare);
-      return sorted.map((m) => {
-        const faults = (MACHINE_FAULT_DESCRIPTIONS[m.name] || []).slice().sort((a, b) => b.count - a.count).slice(0, 3);
-        return {
-          name: m.name,
-          mtbfLabel: 'MTBF ' + m.mtbfLabel,
-          isEmpty: faults.length === 0,
-          faults: faults.map((f) => {
-            const isVague = VAGUE_FAULT_DESCS.indexOf(f.desc) !== -1;
-            return {
-              desc: f.desc,
-              station: f.station,
-              countLabel: f.count === 1 ? 'מופע אחד' : f.count + ' מופעים',
-              durLabel: formatMin(f.min) + ' סה"כ',
-              descStyle: isVague ? 'font-style:italic; color:#D97706; font-weight:700;' : ''
-            };
-          })
-        };
-      });
-    }
-    const mtbfTop3Faults = buildMtbfTop3Faults();
-
-    function buildOutputCombinedChart() {
-      const list = MACHINES.slice().sort((a, b) => b.output - a.output);
-      const maxOut = Math.max.apply(null, list.map((m) => m.output));
-      return list.map((m) => ({
-        name: m.name,
-        valueLabel: formatK(m.output),
-        shareLabel: m.outputShare.toFixed(1) + '%',
-        barHeight: Math.round((m.output / maxOut) * 120) + 'px',
-        colorStyle: 'background:#3B77A8;'
-      }));
-    }
-    const outputCombinedChart = buildOutputCombinedChart();
-
-    // ייצור בפועל לפי מק"ט לכל מכונה — sku, שם המוצר (desc) וכמות (qty, ליטר/יח').
-    // מתוך machine_drilldown.json['<machine>'].production בפועל (שורות ריקות/מק"ט חסר הוסרו).
-    function fmtQty(qty, unit) {
-      const rounded = Math.round(qty);
-      const withCommas = rounded.toLocaleString('en-US');
-      return withCommas + (unit ? ' ' + unit : '');
-    }
-
-    const MACHINE_SKU_PRODUCTION = {
-      'קומבי': [
-        { sku: '347799', desc: 'חלב בבקבוק נטול לקטוז 2%', qty: 53687, unit: 'ליטר' },
-        { sku: '344073', desc: 'חלב בבקבוק 3% מועשר- מהדרין', qty: 44060, unit: 'ליטר' },
-        { sku: '346958', desc: 'חלב 3% בבקבוק 1 ליטר', qty: 42875, unit: 'ליטר' },
-        { sku: '343666', desc: 'שוקו 1 ליטר', qty: 3151, unit: 'ליטר' }
-      ],
-      'מטריקס': [
-        { sku: '365089', desc: 'יטבתה פרו קפה 350 מ"ל', qty: 90546, unit: 'ליטר' },
-        { sku: '364774', desc: 'יטבתה פרו שוקולד אגוזים לל"ס 350 מל', qty: 24577, unit: 'ליטר' }
-      ],
-      'מרין': [
-        { sku: '351247', desc: 'חלב 3% בקבוק 2 ליטר', qty: 67640, unit: 'ליטר' },
-        { sku: '351519', desc: 'שמנת מתוקה 42%, 2 ליטר', qty: 3206, unit: 'ליטר' }
-      ],
-      'טטרה': [
-        { sku: '364871', desc: 'שמנת לבישול 9%', qty: 17970, unit: 'ליטר' }
-      ],
-      'איליג': [
-        { sku: '217122', desc: 'שמנת חמוצה 15% מועשרת מהדרין', qty: 9430, unit: 'ליטר' }
-      ],
-      'טימון': [
-        { sku: '329103', desc: 'מארז 6 שקיות מוקה', qty: 3998, unit: 'ליטר' }
-      ],
-      'פומבה': [
-        { sku: '329103', desc: 'מארז 6 שקיות מוקה', qty: 3453, unit: 'ליטר' }
-      ],
-      'גלאקסי': []
-    };
-
-    function buildProductionSkuList() {
-      const sorted = MACHINES.slice().sort((a, b) => b.output - a.output);
-      return sorted.map((m) => {
-        const skus = (MACHINE_SKU_PRODUCTION[m.name] || []).slice().sort((a, b) => b.qty - a.qty);
-        return {
-          name: m.name,
-          totalLabel: formatK(m.output),
-          isEmpty: skus.length === 0,
-          skus: skus.map((p) => ({
-            sku: p.sku,
-            desc: p.desc,
-            qtyLabel: fmtQty(p.qty, p.unit)
-          }))
-        };
-      });
-    }
-    const productionSkuList = buildProductionSkuList();
-
-    function buildOutputCombinedDeptPie() {
-      const deptNames = Object.keys(DEPT_COLOR);
-      const totals = deptNames.map((d) => {
-        const rows = MACHINES.filter((m) => m.dept === d);
-        return {
-          name: d,
-          output: rows.reduce((sum, m) => sum + m.output, 0),
-          share: rows.reduce((sum, m) => sum + m.outputShare, 0)
-        };
-      });
-      const grandTotal = totals.reduce((sum, t) => sum + t.output, 0) || 1;
-      const CX = 100, CY = 100, R = 92;
-      let cumAngle = -90;
-      return totals.map((t) => {
-        const pct = (t.output / grandTotal) * 100;
-        const angle = (pct / 100) * 360;
-        const startAngle = cumAngle;
-        const endAngle = cumAngle + angle;
-        const startRad = (startAngle * Math.PI) / 180;
-        const endRad = (endAngle * Math.PI) / 180;
-        const x1 = CX + R * Math.cos(startRad);
-        const y1 = CY + R * Math.sin(startRad);
-        const x2 = CX + R * Math.cos(endRad);
-        const y2 = CY + R * Math.sin(endRad);
-        const largeArc = angle > 180 ? 1 : 0;
-        const path = 'M ' + CX + ' ' + CY + ' L ' + x1.toFixed(2) + ' ' + y1.toFixed(2) +
-          ' A ' + R + ' ' + R + ' 0 ' + largeArc + ' 1 ' + x2.toFixed(2) + ' ' + y2.toFixed(2) + ' Z';
-        const midAngle = (startAngle + endAngle) / 2;
-        const midRad = (midAngle * Math.PI) / 180;
-        const labelR = R * 0.62;
-        const labelX = CX + labelR * Math.cos(midRad);
-        const labelY = CY + labelR * Math.sin(midRad);
-        cumAngle = endAngle;
-        return {
-          name: t.name,
-          valueLabel: formatK(t.output),
-          shareLabel: t.share.toFixed(1) + '%',
-          fillStyle: 'fill:' + DEPT_COLOR[t.name] + ';',
-          dotStyle: 'background:' + DEPT_COLOR[t.name] + ';',
-          path,
-          labelX: labelX.toFixed(1),
-          labelY: labelY.toFixed(1),
-          showLabel: pct >= 8
-        };
-      });
-    }
-
-    const outputCombinedDeptPie = buildOutputCombinedDeptPie();
-    const shareView = this.state.shareView;
-    const isShareDept = shareView !== 'machine' && shareView !== 'sku';
-    const isShareMachine = shareView === 'machine';
-    const isShareSku = shareView === 'sku';
-    const TAB_ACTIVE = 'background:#1c2b45;color:#fff;border-color:#1c2b45;';
-    const TAB_INACTIVE = '';
-    const shareMachineTabStyle = isShareMachine ? TAB_ACTIVE : TAB_INACTIVE;
-    const shareDeptTabStyle = isShareDept ? TAB_ACTIVE : TAB_INACTIVE;
-    const shareSkuTabStyle = isShareSku ? TAB_ACTIVE : TAB_INACTIVE;
-
-    const tdtView = this.state.tdtView;
-    const isTdtViewMachine = tdtView !== 'stations';
-    const isTdtViewStations = tdtView === 'stations';
-    const tdtViewMachineTabStyle = isTdtViewMachine ? TAB_ACTIVE : TAB_INACTIVE;
-    const tdtViewStationsTabStyle = isTdtViewStations ? TAB_ACTIVE : TAB_INACTIVE;
-
-    const mtbfView = this.state.mtbfView;
-    const isMtbfViewMachine = mtbfView !== 'faults';
-    const isMtbfViewFaults = mtbfView === 'faults';
-    const mtbfViewMachineTabStyle = isMtbfViewMachine ? TAB_ACTIVE : TAB_INACTIVE;
-    const mtbfViewFaultsTabStyle = isMtbfViewFaults ? TAB_ACTIVE : TAB_INACTIVE;
-
-    function formatK(v) {
-      return (v / 1000).toFixed(1) + 'K';
-    }
-
-    function buildContributionBulletChart() {
-      const list = MACHINES.map((m) => {
-        const target = (m.weight * m.oeeTarget) / 100;
-        const actual = m.contribution;
-        const pct = target > 0 ? (actual / target) * 100 : 0;
-        return { name: m.name, actual: actual, target: target, pct: pct, good: actual >= target };
-      });
-      list.sort((a, b) => b.pct - a.pct);
-      return list.map((d) => {
-        const scaleMax = (d.target * 1.5) || 1;
-        const fillPct = Math.min((d.actual / scaleMax) * 100, 100);
-        const targetPct = (d.target / scaleMax) * 100;
-        const color = d.good ? '#16A34A' : '#DC2626';
-        return {
-          name: d.name,
-          fillWidth: fillPct.toFixed(1) + '%',
-          targetPos: targetPct.toFixed(1) + '%',
-          colorStyle: 'background:' + color + ';',
-          targetLabel: 'יעד ' + d.target.toFixed(2),
-          pointsLabel: d.actual.toFixed(2),
-          labelColorStyle: 'color:' + color + ';'
-        };
-      });
-    }
-    const contributionBulletChart = buildContributionBulletChart();
-
-    const depts = Object.keys(DEPTS).map((name) => {
-      const d = DEPTS[name];
-      return {
-        name,
-        isZero: !!d.isZero,
-        hasDot: !d.isZero,
-        color: d.color,
-        stats: d.stats,
-        onClick: this.goDrill(name)
-      };
+    const byTdt = MACHINES.slice().sort((a, b) => (b.tdt === null ? -1 : b.tdt) - (a.tdt === null ? -1 : a.tdt));
+    const tdtStationFaults = byTdt.map((m) => {
+      const stations = m.stations.slice().sort((a, b) => b.min - a.min).slice(0, 3);
+      return { name: m.name, tdtLabel: 'TDT ' + pct1(m.tdt), isEmpty: stations.length === 0,
+        stations: stations.map((s) => ({ station: s.station, durLabel: formatMin(s.min), countLabel: s.count === 1 ? 'עצירה אחת' : s.count + ' עצירות' })) };
     });
 
-    const view = this.state.view;
-    const selected = this.state.selectedDept ? DEPTS[this.state.selectedDept] : null;
+    const mtbfSort = (a, b) => { if (a.mtbfMin === null) return 1; if (b.mtbfMin === null) return -1; return a.mtbfMin - b.mtbfMin; };
+    const byMtbf = MACHINES.slice().sort(mtbfSort);
+    const maxMtbf = Math.max.apply(null, byMtbf.filter((m) => m.mtbfMin !== null).map((m) => m.mtbfMin).concat([0.0001]));
+    const mtbfChart = byMtbf.map((m) => m.mtbfMin === null
+      ? { name: m.name, valueLabel: 'אין תקלות', barHeight: '3px', colorStyle: 'background:#D8D5C8;' }
+      : { name: m.name, valueLabel: hm(m.mtbfMin), barHeight: Math.max(Math.round((m.mtbfMin / maxMtbf) * 120), 4) + 'px', colorStyle: 'background:#3B77A8;' });
+    const VAGUE = ['אחר', 'עצירה לא מוסברת'];
+    const mtbfTop3Faults = byMtbf.map((m) => {
+      const faults = m.faults.slice().sort((a, b) => b.count - a.count || b.min - a.min).slice(0, 3);
+      return { name: m.name, mtbfLabel: 'MTBF ' + hm(m.mtbfMin), isEmpty: faults.length === 0,
+        faults: faults.map((f) => ({ desc: f.desc, station: f.station, countLabel: f.count === 1 ? 'מופע אחד' : f.count + ' מופעים',
+          durLabel: formatMin(f.min) + ' סה"כ', descStyle: VAGUE.indexOf(f.desc) !== -1 ? 'font-style:italic; color:#D97706; font-weight:700;' : '' })) };
+    });
 
-    return {
-      isHome: view === 'home',
-      isDrill: view === 'drill',
-      plantStats,
-      oeeChart,
-      tdtChart,
-      mtbfChart,
-      outputCombinedChart,
-      outputCombinedDeptPie,
-      isShareMachine,
-      isShareDept,
-      isShareSku,
-      shareMachineTabStyle,
-      shareDeptTabStyle,
-      shareSkuTabStyle,
-      setShareMachineFn: this.setShareView('machine'),
-      setShareDeptFn: this.setShareView('dept'),
-      setShareSkuFn: this.setShareView('sku'),
-      productionSkuList,
-      isTdtViewMachine,
-      isTdtViewStations,
-      tdtViewMachineTabStyle,
-      tdtViewStationsTabStyle,
-      setTdtViewMachineFn: this.setTdtView('machine'),
-      setTdtViewStationsFn: this.setTdtView('stations'),
-      tdtStationFaults,
-      isMtbfViewMachine,
-      isMtbfViewFaults,
-      mtbfViewMachineTabStyle,
-      mtbfViewFaultsTabStyle,
-      setMtbfViewMachineFn: this.setMtbfView('machine'),
-      setMtbfViewFaultsFn: this.setMtbfView('faults'),
-      mtbfTop3Faults,
-      contributionBulletChart,
-      alerts: alertsOut,
-      depts,
-      drillDeptName: this.state.selectedDept || '',
-      drillMachines: selected ? selected.machines : [],
-      onBack: this.goHome()
-    };
+    const byOut = MACHINES.slice().sort((a, b) => b.output - a.output);
+    const maxOut = Math.max.apply(null, byOut.map((m) => m.output).concat([1]));
+    const outputCombinedChart = byOut.map((m) => ({ name: m.name, valueLabel: formatK(m.output), shareLabel: m.outputShare.toFixed(1) + '%',
+      barHeight: Math.round((m.output / maxOut) * 120) + 'px', colorStyle: 'background:#3B77A8;' }));
+    const productionSkuList = byOut.map((m) => {
+      const skus = m.skus.slice().sort((a, b) => b.qty - a.qty);
+      return { name: m.name, totalLabel: formatK(m.output), isEmpty: skus.length === 0,
+        skus: skus.map((p) => ({ sku: p.sku, desc: p.desc, qtyLabel: fmtQty(p.qty, p.unit) })) };
+    });
+
+    const totals = M.depts.map((d) => {
+      const rows = MACHINES.filter((m) => m.deptId === d.id);
+      return { name: d.name, output: rows.reduce((s, m) => s + m.output, 0), share: rows.reduce((s, m) => s + m.outputShare, 0) };
+    }).filter((t) => t.output > 0);
+    const grand = totals.reduce((s, t) => s + t.output, 0) || 1;
+    const CX = 100, CY = 100, R = 92;
+    let cum = -90;
+    const outputCombinedDeptPie = totals.map((t) => {
+      const p = (t.output / grand) * 100;
+      const ang = Math.min((p / 100) * 360, 359.99), a0 = cum, a1 = cum + ang;
+      const r0 = a0 * Math.PI / 180, r1 = a1 * Math.PI / 180;
+      const path = 'M ' + CX + ' ' + CY + ' L ' + (CX + R * Math.cos(r0)).toFixed(2) + ' ' + (CY + R * Math.sin(r0)).toFixed(2) +
+        ' A ' + R + ' ' + R + ' 0 ' + (ang > 180 ? 1 : 0) + ' 1 ' + (CX + R * Math.cos(r1)).toFixed(2) + ' ' + (CY + R * Math.sin(r1)).toFixed(2) + ' Z';
+      const mid = ((a0 + a1) / 2) * Math.PI / 180;
+      cum = a1;
+      return { name: t.name, valueLabel: formatK(t.output), shareLabel: t.share.toFixed(1) + '%', fillStyle: 'fill:' + DEPT_COLOR[t.name] + ';',
+        dotStyle: 'background:' + DEPT_COLOR[t.name] + ';', path, labelX: (CX + R * 0.62 * Math.cos(mid)).toFixed(1), labelY: (CY + R * 0.62 * Math.sin(mid)).toFixed(1), showLabel: p >= 8 };
+    });
+
+    const contributionBulletChart = MACHINES.map((m) => {
+      const target = (m.weight * m.oeeTarget) / 100, actual = m.contribution;
+      return { name: m.name, actual, target, pct: actual === null ? -1 : (target > 0 ? actual / target * 100 : 0), good: actual !== null && actual >= target };
+    }).sort((a, b) => b.pct - a.pct).map((d) => {
+      const scaleMax = (d.target * 1.5) || 1;
+      const color = d.actual === null ? '#9D9D9D' : d.good ? '#16A34A' : '#DC2626';
+      return { name: d.name, fillWidth: (d.actual === null ? 0 : Math.min((d.actual / scaleMax) * 100, 100)).toFixed(1) + '%',
+        targetPos: ((d.target / scaleMax) * 100).toFixed(1) + '%', colorStyle: 'background:' + color + ';',
+        targetLabel: 'יעד ' + d.target.toFixed(2), pointsLabel: d.actual === null ? '—' : d.actual.toFixed(2), labelColorStyle: 'color:' + color + ';' };
+    });
+
+    // ----- department drill-down -----
+    const stat4 = (x) => [
+      { l: '%TDT', v: pct1(x.tdt), n: 'זמן עצירות מתוך זמן כולל' },
+      { l: 'OEE', v: pct1(x.oee), n: official ? 'ישירות מדוח ה-OEE' : 'מחושב לפי הנוסחה' },
+      { l: 'MTBF', v: hm(x.mtbfMin), n: x.fails ? 'זמן ייצור ÷ מס\' תקלות (' + x.fails + ')' : 'אין אירועי תקלה בתקופה' },
+      { l: 'תפוקה (SAP טובים)', v: num(x.output), n: 'יחידות טובות שנספרו ב-SAP' }
+    ];
+    const depts = M.depts.map((d) => ({ name: d.name, isZero: !d.output, hasDot: !!d.output, color: d.color, stats: stat4(d), onClick: this.goDrill(d.name) }));
+    const sel = M.depts.filter((d) => d.name === st.selectedDept)[0];
+
+    return Object.assign(base, {
+      showBanner: false, bannerText: '', srcLabel: st.loading ? 'טוען…' : srcLabel, srcStyle, srcNote,
+      plantStats, oeeChart, tdtChart, mtbfChart, outputCombinedChart, outputCombinedDeptPie, productionSkuList,
+      tdtStationFaults, mtbfTop3Faults, contributionBulletChart, alerts: alertsOut, depts,
+      drillDeptName: st.selectedDept || '', drillMachines: sel ? sel.machines.map((m) => ({ name: m.name, stats: stat4(m) })) : []
+    });
   }
 }
 window.Component = Component;

@@ -33,25 +33,41 @@
 <template id="view">
 <div class="page">
 
-  <div class="banner">גרסת ניסיון — מוצג יום ייצור לדוגמה (עדיין לא הועלו דוחות למערכת). יעדי ה-OEE והמשקלים נטענים מהמסד</div>
+  <sc-if value="{{showBanner}}"><div class="banner">{{bannerText}}</div></sc-if>
 
   <sc-if value="{{isHome}}" hint-placeholder-val="{{true}}">
     <div>
       <div style="font-size: 22px; font-weight: 700; margin-bottom: 2px;">מנהל ייצור — תצוגת מפעל</div>
-      <div style="font-size: 12.5px; color: #8A8776; margin-bottom: 20px;">מקור: דוחות OEE ואירועים גולמיים מה-MES</div>
+      <div style="font-size: 12.5px; color: #8A8776; margin-bottom: 14px;">מקור: דוחות OEE ואירועים גולמיים מה-MES</div>
+
+      <div class="pbar">
+        <div class="pseg" role="group" aria-label="תקופת ניתוח">
+          <sc-for list="{{periods}}" as="p" hint-placeholder-count="3">
+            <button class="pseg-btn" type="button" style="{{p.style}}" onClick="{{p.pick}}">{{p.label}}</button>
+          </sc-for>
+        </div>
+        <div class="pnav">
+          <button class="pnav-btn" type="button" aria-label="תקופה קודמת" style="{{prevStyle}}" onClick="{{prevFn}}">→</button>
+          <span class="pnav-label">{{periodLabel}}</span>
+          <button class="pnav-btn" type="button" aria-label="תקופה הבאה" style="{{nextStyle}}" onClick="{{nextFn}}">←</button>
+        </div>
+        <span class="psrc" style="{{srcStyle}}">{{srcLabel}}</span>
+      </div>
+      <div class="psrc-note">{{srcNote}}</div>
 
       <div class="section-title">מפעל — סה״כ</div>
       <div class="stat-row" style="margin-bottom: 24px;">
         <sc-for list="{{plantStats}}" as="s" hint-placeholder-count="4">
           <div class="card card-plant">
             <div class="l">{{s.l}}</div><div class="v">{{s.v}}</div><div class="n">{{s.n}}</div>
+            <sc-if value="{{s.hasSrc}}" hint-placeholder-val="{{false}}"><div class="kpi-src">{{s.src}}</div></sc-if>
             <div class="kpi-tooltip">
-              <div class="kpi-tooltip-title">השוואה מול ימים קודמים</div>
-              <div class="kpi-tooltip-row"><span>אתמול</span><b>{{s.tt.yest}}</b></div>
+              <div class="kpi-tooltip-title">השוואה מול תקופות קודמות</div>
+              <div class="kpi-tooltip-row"><span>{{s.tt.prevLabel}}</span><b>{{s.tt.yest}}</b></div>
               <div class="kpi-tooltip-sub">{{s.tt.yestDelta}}</div>
-              <div class="kpi-tooltip-row" style="margin-top:6px;"><span>ממוצע 7 ימים</span><b>{{s.tt.week}}</b></div>
+              <div class="kpi-tooltip-row" style="margin-top:6px;"><span>{{s.tt.avgLabel}}</span><b>{{s.tt.week}}</b></div>
               <div class="kpi-tooltip-sub">{{s.tt.weekDelta}}</div>
-              <div class="kpi-tooltip-note">* ערכי אתמול/ממוצע שבועי כאן הם לדוגמה בלבד להמחשת הרעיון — כרגע אין במערכת נתונים מתאריכים אחרים; בכלי בפועל יוצגו נתוני אמת</div>
+              <div class="kpi-tooltip-note">* מאותו סוג תקופה, לפי הדוחות שהועלו. "—" = אין נתון לתקופה הזו</div>
             </div>
           </div>
         </sc-for>
@@ -165,7 +181,7 @@
           </div>
 
           <sc-if value="{{isMtbfViewMachine}}" hint-placeholder-val="{{true}}">
-            <div class="panel-sub" style="margin-bottom:10px;">שעות:דקות בין תקלה לתקלה — ככל שנמוך יותר, המכונה נכשלת בתדירות גבוהה יותר. גלאקסי ללא נתון כי לא היו לה אירועי תקלה בתקופה (גם כי לא הייתה כמעט בייצור)</div>
+            <div class="panel-sub" style="margin-bottom:10px;">שעות:דקות בין תקלה לתקלה — ככל שנמוך יותר, המכונה נכשלת בתדירות גבוהה יותר. "אין תקלות" = לא נרשמו למכונה אירועי תקלה בתקופה</div>
             <div class="chart-bars">
               <sc-for list="{{mtbfChart}}" as="b" hint-placeholder-count="8">
                 <div class="chart-col">
@@ -309,6 +325,7 @@
 <script src="./api.js"></script>
 <script src="./router.js"></script>
 <script src="./engine.js"></script>
+<script src="./dashdata.js"></script>
 <script src="./app.js"></script>
 <script src="./component.js"></script>
 <script src="./settings.js"></script>
