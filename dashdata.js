@@ -329,5 +329,5 @@
     return INIT;
   }
 
-  window.OEE_DASH = { init: init, invalidate: invalidate, loadPeriod: loadPeriod, cal: CAL, index: function () { return INDEX; }, depts: function () { return STATIC ? STATIC.depts : []; }, officialOf: officialOf };
+  window.OEE_DASH = { init: init, invalidate: invalidate, static: function () { return STATIC; }, selectAll: selectAll, loadPeriod: loadPeriod, cal: CAL, index: function () { return INDEX; }, depts: function () { return STATIC ? STATIC.depts : []; }, officialOf: officialOf };
 })();

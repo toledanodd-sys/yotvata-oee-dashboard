@@ -42,7 +42,7 @@
 
   // role screens still being specified: a placeholder page each
   document.addEventListener('DOMContentLoaded', function () {
-    [['#/pl', 'pl-root', 'Process Lead — בשלבי אפיון'], ['#/ml', 'ml-root', 'Maintenance Lead — בשלבי אפיון']].forEach(function (x) {
+    [['#/ml', 'ml-root', 'Maintenance Lead — בשלבי אפיון']].forEach(function (x) {
       var el = document.getElementById(x[1]);
       if (el) pages[x[0]] = { el: el, role: x[2] };
     });

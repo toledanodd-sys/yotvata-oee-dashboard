@@ -30,7 +30,7 @@
 </header>
 <main id="root"></main>
 <main id="ll-root" hidden></main>
-<main id="pl-root" hidden><div class="page"><div class="soon-card"><div class="soon-tag">בשלבי אפיון</div><div class="soon-title">Process Lead</div><div class="soon-text">המסך של ה-Process Lead עדיין באפיון. בינתיים אפשר לעבור ל"מנהל ייצור" או ל-"LL" בסרגל העליון.</div></div></div></main>
+<main id="pl-root" hidden></main>
 <main id="ml-root" hidden><div class="page"><div class="soon-card"><div class="soon-tag">בשלבי אפיון</div><div class="soon-title">Maintenance Lead</div><div class="soon-text">המסך של ה-Maintenance Lead עדיין באפיון. בינתיים אפשר לעבור ל"מנהל ייצור" או ל-"LL" בסרגל העליון.</div></div></div></main>
 <main id="settings-root" hidden></main>
 <main id="upload-root" hidden></main>
@@ -627,12 +627,121 @@
 
 </div>
 </template>
+<template id="view-pl">
+<div class="page pl-page">
+  <div class="banner">{{bannerText}}</div>
+  <div style="font-size: 22px; font-weight: 700; margin-bottom: 2px;">Process Lead — ניתוח הפסדים</div>
+  <div style="font-size: 12.5px; color: #8A8776; margin-bottom: 14px;">{{subTitle}}</div>
+  <div class="pbar" style="margin-bottom: 10px;">
+    <span style="font-size: 12.5px; font-weight: 700; color: #5B594F; padding: 0 4px;">קו</span>
+    <div class="pseg" role="group" aria-label="קו">
+      <sc-for list="{{machineChips}}" as="c" hint-placeholder-count="8">
+        <button class="pl-chip" type="button" style="{{c.style}}" onClick="{{c.pick}}">{{c.name}}</button>
+      </sc-for>
+    </div>
+  </div>
+  <div class="pbar">
+    <div class="pseg" role="group" aria-label="תקופה">
+      <button class="pseg-btn" type="button" style="background: #1c2b45; color: #FFFFFF;">יום</button>
+      <button class="pseg-btn" type="button" style="opacity: 0.4; cursor: default;" title="בשלבי אפיון">שבוע</button>
+      <button class="pseg-btn" type="button" style="opacity: 0.4; cursor: default;" title="בשלבי אפיון">חודש</button>
+    </div>
+    <div class="pnav">
+      <button class="pnav-btn" type="button" aria-label="יום קודם" style="{{prevStyle}}" onClick="{{prevFn}}">→</button>
+      <span class="pnav-label">{{periodLabel}}</span>
+      <button class="pnav-btn" type="button" aria-label="יום הבא" style="{{nextStyle}}" onClick="{{nextFn}}">←</button>
+    </div>
+    <span class="psrc" style="{{srcStyle}}">{{srcLabel}}</span>
+  </div>
+  <div class="psrc-note">כרגע מוצג היום בלבד. שבוע וחודש יאופיינו בנפרד.</div>
+  <div class="stat-row" style="margin-bottom: 22px;">
+    <sc-for list="{{kpis}}" as="s" hint-placeholder-count="4">
+      <div class="card card-plant"><div class="l">{{s.l}}</div><div class="v">{{s.v}}</div><sc-if value="{{s.hasSub}}" hint-placeholder-val="{{false}}"><div class="card-sub">{{s.sub}}</div></sc-if><div class="n">{{s.n}}</div></div>
+    </sc-for>
+  </div>
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">ציר הזמן של היום — מה קרה ומתי</div>
+    <div class="panel-sub">כל פס צבעוני הוא אירוע מדוח ה-RAW, לפי השעה. הקווים השחורים הם החלפות משמרת (07:00 / 15:00 / 23:00)</div>
+    <div class="tl-shiftnames"><div>בוקר · 07:00 עד 15:00</div><div>ערב · 15:00 עד 23:00</div><div>לילה · 23:00 עד 07:00</div></div>
+    <div class="tl-wrap">
+      <div class="tl-bar">
+        <sc-for list="{{segs}}" as="s" hint-placeholder-count="30"><div class="tl-seg" style="{{s.style}}" title="{{s.title}}"></div></sc-for>
+      </div>
+      <div class="tl-shift" style="right: 33.333%;"></div>
+      <div class="tl-shift" style="right: 66.666%;"></div>
+    </div>
+    <div class="tl-ticks">
+      <sc-for list="{{ticks}}" as="t" hint-placeholder-count="12"><span class="tl-tick" style="{{t.style}}">{{t.label}}</span></sc-for>
+    </div>
+    <div class="leg">
+      <sc-for list="{{legend}}" as="l" hint-placeholder-count="6"><span class="leg-item"><span class="leg-sw" style="{{l.style}}"></span>{{l.name}}</span></sc-for>
+    </div>
+  </div>
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">פארטו הפסדים — היום</div>
+    <div class="panel-sub">כל ההפסדים של היום (תקלות, המתנות ופעילויות), מהגדול לקטן. הקו השחור בכל שורה הוא האחוז המצטבר. הקו השחור בכל שורה הוא האחוז המצטבר מכלל ההפסד של היום</div>
+    <sc-for list="{{pareto}}" as="p" hint-placeholder-count="10">
+      <div class="par-row">
+        <div class="par-rank">{{p.rank}}</div>
+        <div class="par-desc"><b>{{p.desc}}</b><span>{{p.sub}}</span></div>
+        <div class="par-track"><div class="par-fill" style="{{p.fillStyle}}"></div><div class="par-cum" style="{{p.cumStyle}}"></div></div>
+        <div class="par-min">{{p.min}}</div>
+        <div class="par-cumtxt">{{p.cum}}</div>
+      </div>
+    </sc-for>
+  </div>
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">הפסדים חוזרים — 7 הימים האחרונים</div>
+    <div class="panel-sub">כמה דקות הלכו על כל סיבה בכל יום. סיבה שחוזרת רוב הימים היא מועמדת לפתרון בעיות מעמיק (UPS). אירוע ארוך חד-פעמי מתאים לתחקיר מיידי (IPS)</div>
+    <div class="rec-row rec-head">
+      <div>סיבה · תחנה</div>
+      <sc-for list="{{days}}" as="d" hint-placeholder-count="7"><div style="text-align: center;">{{d}}</div></sc-for>
+      <div>סה"כ</div><div>המלצה</div>
+    </div>
+    <sc-for list="{{recurring}}" as="r" hint-placeholder-count="10">
+      <div class="rec-row">
+        <div class="par-desc"><b>{{r.desc}}</b><span>{{r.sub}}</span></div>
+        <sc-for list="{{r.cells}}" as="c" hint-placeholder-count="7"><div class="rec-cell" style="{{c.style}}">{{c.v}}</div></sc-for>
+        <div class="par-min">{{r.tot}}</div>
+        <div class="rec-tag" style="{{r.tagStyle}}">{{r.tag}}</div>
+      </div>
+    </sc-for>
+  </div>
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">השוואת משמרות</div>
+    <div class="panel-sub">לפי שעון: 07:00, 15:00, 23:00. השונות בין המשמרות היא אחד הדברים שה-PL אחראי לצמצם</div>
+    <div class="sh-grid">
+      <sc-for list="{{shifts}}" as="s" hint-placeholder-count="3">
+        <div class="sh-card">
+          <div class="sh-title">{{s.name}}</div>
+          <div class="sh-bar"><sc-for list="{{s.parts}}" as="p" hint-placeholder-count="4"><div style="{{p.style}}"></div></sc-for></div>
+          <sc-for list="{{s.lines}}" as="l" hint-placeholder-count="5"><div class="sh-line"><span>{{l.l}}</span><b>{{l.v}}</b></div></sc-for>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">העצירות הארוכות של היום (15 דקות ומעלה)</div>
+    <div class="panel-sub">לפי סדר השעות. אלה האירועים שכדאי לתחקר ראשונים</div>
+    <sc-for list="{{longEvents}}" as="e" hint-placeholder-count="10">
+      <div class="ev-row">
+        <div class="ev-time">{{e.t}}</div>
+        <div class="ev-dur">{{e.dur}}</div>
+        <div><span class="ev-kind" style="{{e.kindStyle}}"></span>{{e.desc}}</div>
+        <div style="color: #8A8776;">{{e.station}}</div>
+      </div>
+    </sc-for>
+  </div>
+
+</div>
+</template>
 <script src="./api.js"></script>
 <script src="./router.js"></script>
 <script src="./engine.js"></script>
 <script src="./dashdata.js"></script>
 <script src="./app.js"></script>
 <script src="./component.js"></script>
+<script src="./pl.js"></script>
 <script src="./settings.js"></script>
 <script src="./upload.js"></script>
 </body>

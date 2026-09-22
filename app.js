@@ -95,8 +95,8 @@
   };
 
   // one screen = one component instance rendered from one template into one root
-  function mount(root, tpl, props) {
-    var comp = new window.Component(props || {});
+  function mount(root, tpl, props, Ctor) {
+    var comp = new (Ctor || window.Component)(props || {});
     comp._rerender = function () {
       var out = [];
       renderChildren(tpl, comp.renderVals(), out);
@@ -167,6 +167,12 @@
       comp = mount(root, tpl, {});
     }
     // Line Lead screen (same screen scoped to one department) — mounted the first time it is opened
+    // Process Lead screen (loss analysis for one line)
+    var plComp = null, plRoot = document.getElementById('pl-root');
+    window.OEE_ROUTER.register('#/pl', plRoot, 'Process Lead — ניתוח הפסדים', function () {
+      if (!plComp) plComp = mount(plRoot, document.getElementById('view-pl'), {}, window.OEE_PL.Component);
+    });
+
     var llRoot = document.getElementById('ll-root');
     window.OEE_ROUTER.register('#/ll', llRoot, 'Line Lead — תצוגת אגף', function () {
       if (!llComp) llComp = mount(llRoot, document.getElementById('view-ll'), { scope: 'dept' });
@@ -191,6 +197,7 @@
         if (window.OEE_DASH) window.OEE_DASH.invalidate();
         if (comp) comp.start(); else start();
         if (llComp) llComp.start();
+        if (plComp) { window.OEE_PL.clearCache(); plComp.start(); }
       });
     };
 
