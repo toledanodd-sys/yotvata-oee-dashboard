@@ -225,6 +225,19 @@
     // machine names in RAW
     var counts = {};
     events.forEach(function (e) { counts[e.machine] = (counts[e.machine] || 0) + 1; });
+    // is the OEE report complete? (MES lets you filter the export by entity — a partial export hides machines on the dashboard)
+    var inOee = {};
+    oeeRows.forEach(function (o) { inOee[o.entity] = true; });
+    var produced = {};
+    events.forEach(function (e) { if (e.status === 'ייצור' && byName[e.machine]) produced[e.machine] = true; });
+    var missingOee = Object.keys(produced).filter(function (n) { return !inOee[n]; });
+    var noPlant = !oeeRows.some(function (o) { return !byName[o.entity] && !deptNames[o.entity]; });
+    if (missingOee.length || noPlant) {
+      checks.push({ kind: 'warn', title: 'דוח ה-OEE חלקי — ' + (noPlant ? 'אין בו שורת מפעל (יטבתה)' : '') + (noPlant && missingOee.length ? ' וגם ' : '') +
+        (missingOee.length ? 'חסרות ' + missingOee.length + ' מכונות שעבדו לפי דוח האירועים' : ''),
+        body: (missingOee.length ? 'חסרות: ' + missingOee.join(', ') + '. ' : '') + 'כנראה הדוח יוצא מה-MES עם סינון ישויות. מומלץ לבטל, להפיק מחדש את דוח ה-OEE עם כל הישויות (יטבתה, כל האגפים וכל המכונות) ולהעלות שוב — אחרת בדשבורד יחסרו OEE, TDT ותפוקה למפעל ולמכונות האלה' });
+    }
+
     var unknown = Object.keys(counts).filter(function (n) { return !byName[n]; }).map(function (n) {
       var a = aliasBy[n];
       return { name: n, events: counts[n], saved: a ? (a.machine_id === null ? '' : String(a.machine_id)) : null };

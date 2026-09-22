@@ -18,11 +18,14 @@
     var role = document.querySelector('.appbar-role');
     if (role) role.textContent = page ? page.role : 'מנהל ייצור — תצוגת מפעל';
     // role switch: plant view (#/) or department view (#/ll); the choice is remembered for the next launch
-    var onLL = hash === '#/ll', onPlant = !page;
-    var rp = document.getElementById('role-plant'), rl = document.getElementById('role-ll');
-    if (rp) rp.classList.toggle('active', onPlant);
-    if (rl) rl.classList.toggle('active', onLL);
-    if (onLL || onPlant) { try { localStorage.setItem('oee_role_v1', onLL ? 'll' : 'plant'); } catch (e) { /* private mode */ } }
+    var ROLES = { plant: '#/', ll: '#/ll', pl: '#/pl', ml: '#/ml' };
+    var cur = !page ? 'plant' : null;
+    Object.keys(ROLES).forEach(function (r) { if (ROLES[r] === hash && r !== 'plant') cur = r; });
+    Object.keys(ROLES).forEach(function (r) {
+      var a = document.getElementById('role-' + r);
+      if (a) a.classList.toggle('active', r === cur);
+    });
+    if (cur) { try { localStorage.setItem('oee_role_v1', cur); } catch (e) { /* private mode */ } }
     [['gear', '#/settings'], ['upload-link', '#/upload']].forEach(function (x) {
       var a = document.getElementById(x[0]);
       if (!a) return;
@@ -37,6 +40,14 @@
     if (page && page.onShow) page.onShow();
   }
 
+  // role screens still being specified: a placeholder page each
+  document.addEventListener('DOMContentLoaded', function () {
+    [['#/pl', 'pl-root', 'Process Lead — בשלבי אפיון'], ['#/ml', 'ml-root', 'Maintenance Lead — בשלבי אפיון']].forEach(function (x) {
+      var el = document.getElementById(x[1]);
+      if (el) pages[x[0]] = { el: el, role: x[2] };
+    });
+  });
+
   window.OEE_ROUTER = {
     register: function (hash, el, role, onShow, onLeave) {
       pages[hash] = { el: el, role: role, onShow: onShow, onLeave: onLeave };
@@ -45,7 +56,7 @@
       if (!location.hash) {
         var saved = null;
         try { saved = localStorage.getItem('oee_role_v1'); } catch (e) { /* private mode */ }
-        if (saved === 'll') history.replaceState(null, '', '#/ll');
+        if (saved === 'll' || saved === 'pl' || saved === 'ml') history.replaceState(null, '', '#/' + saved);
       }
       window.addEventListener('hashchange', route);
       route();
