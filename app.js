@@ -91,8 +91,22 @@
   window.DCLogic = function DCLogic(props) { this.props = props || {}; this.state = {}; };
   window.DCLogic.prototype.setState = function (patch) {
     for (var k in patch) this.state[k] = patch[k];
-    rerender();
+    if (this._rerender) this._rerender(); else rerender();
   };
+
+  // one screen = one component instance rendered from one template into one root
+  function mount(root, tpl, props) {
+    var comp = new window.Component(props || {});
+    comp._rerender = function () {
+      var out = [];
+      renderChildren(tpl, comp.renderVals(), out);
+      root.textContent = '';
+      for (var i = 0; i < out.length; i++) root.appendChild(out[i]);
+    };
+    comp._rerender();
+    comp.start();
+    return comp;
+  }
 
   // ---------- live settings from Supabase ----------
   function setStatus(kind, text) {
@@ -148,11 +162,15 @@
       for (var i = 0; i < out.length; i++) root.appendChild(out[i]);
     };
 
+    var llComp = null;
     function start() {
-      comp = new window.Component({});
-      rerender();
-      comp.start();
+      comp = mount(root, tpl, {});
     }
+    // Line Lead screen (same screen scoped to one department) — mounted the first time it is opened
+    var llRoot = document.getElementById('ll-root');
+    window.OEE_ROUTER.register('#/ll', llRoot, 'Line Lead — תצוגת אגף', function () {
+      if (!llComp) llComp = mount(llRoot, document.getElementById('view-ll'), { scope: 'dept' });
+    });
 
     function refreshLive() {
       setStatus('wait', 'מתחבר…');
@@ -170,19 +188,23 @@
     window.__reloadDashboard = function () {
       refreshLive().then(function () {
         // reload targets, weights, rules and uploaded data; the component keeps its period / tab state
+        if (window.OEE_DASH) window.OEE_DASH.invalidate();
         if (comp) comp.start(); else start();
+        if (llComp) llComp.start();
       });
     };
 
     refreshLive().then(start);
 
     // KPI tooltip: tap to open on touch screens (hover still works with a mouse)
-    root.addEventListener('click', function (e) {
+    function kpiTap(e) {
       var card = e.target.closest ? e.target.closest('.card-plant') : null;
-      var open = root.querySelectorAll('.card-plant.tt-open');
+      var open = document.querySelectorAll('.card-plant.tt-open');
       for (var i = 0; i < open.length; i++) if (open[i] !== card) open[i].classList.remove('tt-open');
       if (card) card.classList.toggle('tt-open');
-    });
+    }
+    root.addEventListener('click', kpiTap);
+    llRoot.addEventListener('click', kpiTap);
   }
 
   if ('serviceWorker' in navigator) {

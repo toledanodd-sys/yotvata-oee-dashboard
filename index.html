@@ -22,12 +22,14 @@
     <div class="appbar-role">מנהל ייצור — תצוגת מפעל יומית</div>
   </div>
   <div class="appbar-end">
+    <nav class="role-seg" aria-label="תצוגה"><a id="role-plant" href="#/">מפעל</a><a id="role-ll" href="#/ll">אגף</a></nav>
     <div id="conn" class="conn conn-wait">טוען…</div>
     <a id="upload-link" class="appbar-gear" href="#/upload" aria-label="העלאת דוחות" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></a>
     <a id="gear" class="appbar-gear" href="#/settings" aria-label="הגדרות"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>
   </div>
 </header>
 <main id="root"></main>
+<main id="ll-root" hidden></main>
 <main id="settings-root" hidden></main>
 <main id="upload-root" hidden></main>
 <template id="view">
@@ -244,6 +246,307 @@
 
         <sc-if value="{{isShareDept}}" hint-placeholder-val="{{true}}">
           <div class="panel-sub" style="margin-bottom:10px;">מצטבר לרמת אגף · תפוקה בפועל ואחוז מהמפעל ביחד</div>
+          <div class="pie-wrap-dept">
+            <svg width="190" height="190" viewBox="0 0 200 200">
+              <sc-for list="{{outputCombinedDeptPie}}" as="p" hint-placeholder-count="4">
+                <path d="{{p.path}}" style="{{p.fillStyle}}" stroke="#fff" stroke-width="2.5"></path>
+              </sc-for>
+              <sc-for list="{{outputCombinedDeptPie}}" as="p" hint-placeholder-count="4">
+                <sc-if value="{{p.showLabel}}" hint-placeholder-val="{{false}}">
+                  <text x="{{p.labelX}}" y="{{p.labelY}}" class="pie-slice-label">
+                    <tspan x="{{p.labelX}}" dy="-6">{{p.valueLabel}}</tspan>
+                    <tspan x="{{p.labelX}}" dy="16" class="pie-slice-sub">{{p.shareLabel}}</tspan>
+                  </text>
+                </sc-if>
+              </sc-for>
+            </svg>
+            <div class="pie-legend">
+              <sc-for list="{{outputCombinedDeptPie}}" as="p" hint-placeholder-count="4">
+                <div class="pie-legend-item">
+                  <span class="pie-legend-dot" style="{{p.dotStyle}}"></span>
+                  <span class="pie-legend-name">{{p.name}}</span>
+                  <span class="pie-legend-pct">{{p.valueLabel}}</span>
+                  <span class="pie-legend-sub">({{p.shareLabel}})</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{isShareSku}}" hint-placeholder-val="{{false}}">
+          <div class="panel-sub" style="margin-bottom:10px;">לכל מכונה — כל המק"טים שיוצרו, ממוין מהגבוה לנמוך לפי כמות התפוקה; המכונות עצמן מסודרות כמו בגרף "לפי מכונה"</div>
+          <div class="banner" style="display:block; margin-bottom:14px;">הכמויות כאן מדווחות ברמת מק"ט מתוך ה-MES ואינן בהכרח תואמות במדויק את התפוקה הרשמית מ-SAP המוצגת בגרף ובכרטיסי העל — פער הדיווח בין שתי המערכות הוא מצב קיים.</div>
+          <div class="top3-list">
+            <sc-for list="{{productionSkuList}}" as="m" hint-placeholder-count="8">
+              <div class="top3-machine-block">
+                <div class="top3-machine-name"><span>{{m.name}}</span><span class="top3-machine-tdt">{{m.totalLabel}}</span></div>
+                <sc-for list="{{m.skus}}" as="p" hint-placeholder-count="4">
+                  <div class="top3-reason-row">
+                    <div class="top3-sku-code">{{p.sku}}</div>
+                    <div class="top3-reason-desc">{{p.desc}}</div>
+                    <div class="top3-reason-stats">
+                      <div class="top3-reason-dur">{{p.qtyLabel}}</div>
+                    </div>
+                  </div>
+                </sc-for>
+                <sc-if value="{{m.isEmpty}}" hint-placeholder-val="{{false}}">
+                  <div class="top3-empty">אין נתוני ייצור מק"ט בתקופה</div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isDrill}}" hint-placeholder-val="{{false}}">
+    <div>
+      <button class="backbtn" onClick="{{onBack}}">→ חזרה לתצוגת המפעל</button>
+      <div style="font-size: 20px; font-weight: 700; margin-bottom: 2px;">{{drillDeptName}}</div>
+      <div style="font-size: 11px; color: #8A8776; margin-bottom: 20px;">קווי הייצור באגף — כל קו בנפרד, ללא חזרה על נתוני האגף</div>
+
+      <div class="machine-grid">
+        <sc-for list="{{drillMachines}}" as="m" hint-placeholder-count="2">
+          <div class="machine-block">
+            <div class="machine-block-title">{{m.name}}</div>
+            <div class="stat-row">
+              <sc-for list="{{m.stats}}" as="s" hint-placeholder-count="4">
+                <div class="card"><div class="l">{{s.l}}</div><div class="v">{{s.v}}</div><div class="n">{{s.n}}</div></div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</template>
+<template id="view-ll">
+<div class="page">
+
+  <sc-if value="{{showBanner}}"><div class="banner">{{bannerText}}</div></sc-if>
+
+  <sc-if value="{{isHome}}" hint-placeholder-val="{{true}}">
+    <div>
+      <div style="font-size: 22px; font-weight: 700; margin-bottom: 2px;">Line Lead — אגף {{deptName}}</div>
+      <div style="font-size: 12.5px; color: #8A8776; margin-bottom: 14px;">מקור: דוחות OEE ואירועים גולמיים מה-MES</div>
+
+      <div class="pbar" style="margin-bottom: 10px;">
+        <span style="font-size: 12.5px; font-weight: 700; color: #5B594F; padding: 0 4px;">האגף שלי</span>
+        <div class="pseg" role="group" aria-label="אגף">
+          <sc-for list="{{deptChips}}" as="d" hint-placeholder-count="4">
+            <button class="pseg-btn" type="button" style="{{d.style}}" onClick="{{d.pick}}">{{d.label}}</button>
+          </sc-for>
+        </div>
+        <span style="font-size: 11.5px; color: #8A8776; margin-inline-start: auto;">הבחירה נשמרת במכשיר — בכניסה הבאה המסך נפתח ישר על האגף הזה</span>
+      </div>
+      <div class="pbar">
+        <div class="pseg" role="group" aria-label="תקופת ניתוח">
+          <sc-for list="{{periods}}" as="p" hint-placeholder-count="3">
+            <button class="pseg-btn" type="button" style="{{p.style}}" onClick="{{p.pick}}">{{p.label}}</button>
+          </sc-for>
+        </div>
+        <div class="pnav">
+          <button class="pnav-btn" type="button" aria-label="תקופה קודמת" style="{{prevStyle}}" onClick="{{prevFn}}">→</button>
+          <span class="pnav-label">{{periodLabel}}</span>
+          <button class="pnav-btn" type="button" aria-label="תקופה הבאה" style="{{nextStyle}}" onClick="{{nextFn}}">←</button>
+        </div>
+        <span class="psrc" style="{{srcStyle}}">{{srcLabel}}</span>
+      </div>
+      <div class="psrc-note">{{srcNote}}</div>
+
+      <div class="section-title">אגף {{deptName}} — סה״כ</div>
+      <div class="stat-row" style="margin-bottom: 24px;">
+        <sc-for list="{{plantStats}}" as="s" hint-placeholder-count="4">
+          <div class="card card-plant">
+            <div class="l">{{s.l}}</div><div class="v">{{s.v}}</div><div class="n">{{s.n}}</div>
+            <sc-if value="{{s.hasSrc}}" hint-placeholder-val="{{false}}"><div class="kpi-src">{{s.src}}</div></sc-if>
+            <div class="kpi-tooltip">
+              <div class="kpi-tooltip-title">השוואה מול תקופות קודמות</div>
+              <div class="kpi-tooltip-row"><span>{{s.tt.prevLabel}}</span><b>{{s.tt.yest}}</b></div>
+              <div class="kpi-tooltip-sub">{{s.tt.yestDelta}}</div>
+              <div class="kpi-tooltip-row" style="margin-top:6px;"><span>{{s.tt.avgLabel}}</span><b>{{s.tt.week}}</b></div>
+              <div class="kpi-tooltip-sub">{{s.tt.weekDelta}}</div>
+              <div class="kpi-tooltip-note">* מאותו סוג תקופה, לפי הדוחות שהועלו. "—" = אין נתון לתקופה הזו</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div class="panel" style="margin-bottom: 8px;">
+        <div class="panel-title">התראות וחריגים — איפה למקד פעולה היום</div>
+        <div class="panel-sub">מדורג לפי נק' OEE <b>אגפי</b> אבודות מול היעד העצמי של כל מכונה (משקל המכונה באגף × (יעד − בפועל)) — כל מכונה מול המצופה ממנה</div>
+
+        <div class="alert-grid">
+          <sc-for list="{{alerts}}" as="a" hint-placeholder-count="4">
+            <div class="alert-row" style="{{a.rowStyle}}">
+              <span class="alert-dot" style="{{a.dotStyle}}"></span>
+              <div class="alert-text"><b>{{a.title}}</b><span>{{a.detail}}</span></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div class="section-title-sub">ביצועי OEE — למה ה-OEE נמוך</div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title">OEE לפי מכונה (מהגבוה לנמוך)</div>
+          <div class="panel-sub" style="margin-bottom:10px;">הקו המקווקו הוא יעד ה-OEE של המכונה (Machine_OEE_Target) · ירוק = עמדו/חצו את היעד, אדום = לא עמדו ביעד</div>
+          <div class="chart-bars">
+            <sc-for list="{{oeeChart}}" as="b" hint-placeholder-count="8">
+              <div class="chart-col">
+                <div class="bar-val-v">{{b.valueLabel}}</div>
+                <div class="bar-track-v">
+                  <div class="target-line" style="bottom: {{b.targetHeight}};"></div>
+                  <div class="bar-fill-v" style="height: {{b.barHeight}}; {{b.colorStyle}}"></div>
+                </div>
+                <div class="chart-name">{{b.name}}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">תרומה ל-OEE האגפי — ביצוע מול יעד, לפי מכונה</div>
+          <div class="panel-sub" style="margin-bottom:10px;">כל שורה מנורמלת ליעד <b>שלה</b>. הסמן השחור הוא נקודת היעד (משקל המכונה באגף × יעד OEE). ירוק = עברה את הסמן, אדום = לא הגיעה אליו. המספר הבולט הוא התרומה בפועל בנקודות OEE לאגף, ולצידו יעד התרומה שלה</div>
+          <div class="bullet-list">
+            <sc-for list="{{contributionBulletChart}}" as="b" hint-placeholder-count="8">
+              <div class="bullet-row">
+                <div class="bullet-name">{{b.name}}</div>
+                <div class="bullet-track">
+                  <div class="bullet-fill" style="width: {{b.fillWidth}}; {{b.colorStyle}}"></div>
+                  <div class="bullet-target" style="right: {{b.targetPos}};"></div>
+                </div>
+                <div class="bullet-values">
+                  <span class="bullet-points" style="{{b.labelColorStyle}}">{{b.pointsLabel}}</span>
+                  <span class="bullet-pct">{{b.targetLabel}}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title-sub">אמינות ותפעול — מה גורם לעצירות</div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title">TDT% (זמן עצירות) לפי מכונה (מהגבוה לנמוך)</div>
+          <div class="filter-tabs">
+            <span class="filter-tab" style="{{tdtViewMachineTabStyle}}" onClick="{{setTdtViewMachineFn}}">לפי מכונה</span>
+            <span class="filter-tab" style="{{tdtViewStationsTabStyle}}" onClick="{{setTdtViewStationsFn}}">TOP 3 תקלות לפי תחנה</span>
+          </div>
+
+          <sc-if value="{{isTdtViewMachine}}" hint-placeholder-val="{{true}}">
+            <div class="panel-sub" style="margin-bottom:10px;">אחוז מזמן העבודה שהמכונה עמדה — אחד הגורמים הישירים לפער ב-OEE. אין כרגע יעד מוגדר למדד הזה, ולכן העמודות בצבע אחיד ולא ירוק/אדום</div>
+            <div class="chart-bars">
+              <sc-for list="{{tdtChart}}" as="b" hint-placeholder-count="8">
+                <div class="chart-col">
+                  <div class="bar-val-v">{{b.valueLabel}}</div>
+                  <div class="bar-track-v"><div class="bar-fill-v" style="height: {{b.barHeight}}; {{b.colorStyle}}"></div></div>
+                  <div class="chart-name">{{b.name}}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{isTdtViewStations}}" hint-placeholder-val="{{false}}">
+            <div class="panel-sub" style="margin-bottom:10px;">לכל מכונה — 3 התחנות עם משך מצטבר הגבוה ביותר של עצירות מסוג "תקלה" בלבד (מתוך דוח RAW הגולמי, לא סטטוסים אחרים כמו הפסקה/המתנה/סט-אפ), ממוין מהגבוה לנמוך</div>
+            <div class="top3-list">
+              <sc-for list="{{tdtStationFaults}}" as="m" hint-placeholder-count="8">
+                <div class="top3-machine-block">
+                  <div class="top3-machine-name"><span>{{m.name}}</span><span class="top3-machine-tdt">{{m.tdtLabel}}</span></div>
+                  <sc-for list="{{m.stations}}" as="s" hint-placeholder-count="3">
+                    <div class="top3-reason-row">
+                      <div class="top3-reason-desc">{{s.station}}</div>
+                      <div class="top3-reason-stats">
+                        <div class="top3-reason-dur">{{s.durLabel}}</div>
+                        <div class="top3-reason-count">{{s.countLabel}}</div>
+                      </div>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{m.isEmpty}}" hint-placeholder-val="{{false}}">
+                    <div class="top3-empty">אין עצירות מסוג "תקלה" בתקופה</div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">MTBF (זמן ממוצע בין תקלות) לפי מכונה (מהנמוך לגבוה)</div>
+          <div class="filter-tabs">
+            <span class="filter-tab" style="{{mtbfViewMachineTabStyle}}" onClick="{{setMtbfViewMachineFn}}">לפי מכונה</span>
+            <span class="filter-tab" style="{{mtbfViewFaultsTabStyle}}" onClick="{{setMtbfViewFaultsFn}}">TOP 3 תיאורי תקלה</span>
+          </div>
+
+          <sc-if value="{{isMtbfViewMachine}}" hint-placeholder-val="{{true}}">
+            <div class="panel-sub" style="margin-bottom:10px;">שעות:דקות בין תקלה לתקלה — ככל שנמוך יותר, המכונה נכשלת בתדירות גבוהה יותר. "אין תקלות" = לא נרשמו למכונה אירועי תקלה בתקופה</div>
+            <div class="chart-bars">
+              <sc-for list="{{mtbfChart}}" as="b" hint-placeholder-count="8">
+                <div class="chart-col">
+                  <div class="bar-val-v">{{b.valueLabel}}</div>
+                  <div class="bar-track-v"><div class="bar-fill-v" style="height: {{b.barHeight}}; {{b.colorStyle}}"></div></div>
+                  <div class="chart-name">{{b.name}}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{isMtbfViewFaults}}" hint-placeholder-val="{{false}}">
+            <div class="panel-sub" style="margin-bottom:10px;">לכל מכונה — 3 תיאורי התקלה עם מספר המופעים הגבוה ביותר (סטטוס "תקלה" בלבד מדוח RAW), ממוין מהנמוך לגבוה ב-MTBF כמו הגרף. תיאורים <span style="font-style:italic; color:#D97706; font-weight:700;">מודגשים בכתום</span> (למשל "אחר", "עצירה לא מוסברת") אינם מסבירים את סיבת התקלה בפועל — סימן לתיעוד לקוי בשטח שכדאי לשפר, לא לתקלה חוזרת אמיתית</div>
+            <div class="top3-list">
+              <sc-for list="{{mtbfTop3Faults}}" as="m" hint-placeholder-count="8">
+                <div class="top3-machine-block">
+                  <div class="top3-machine-name"><span>{{m.name}}</span><span class="top3-machine-tdt">{{m.mtbfLabel}}</span></div>
+                  <sc-for list="{{m.faults}}" as="f" hint-placeholder-count="3">
+                    <div class="top3-reason-row">
+                      <div class="top3-reason-desc" style="{{f.descStyle}}">{{f.desc}}</div>
+                      <div class="top3-reason-station">{{f.station}}</div>
+                      <div class="top3-reason-stats">
+                        <div class="top3-reason-dur">{{f.countLabel}}</div>
+                        <div class="top3-reason-count">{{f.durLabel}}</div>
+                      </div>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{m.isEmpty}}" hint-placeholder-val="{{false}}">
+                    <div class="top3-empty">אין עצירות מסוג "תקלה" בתקופה</div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+      <div class="section-title-sub">תפוקה</div>
+      <div class="chart-card">
+        <div class="chart-title">תפוקה — מוחלטת ואחוז מהאגף, ביחד</div>
+        <div class="filter-tabs">
+          <span class="filter-tab" style="{{shareDeptTabStyle}}" onClick="{{setShareDeptFn}}">חלוקה בין המכונות</span>
+          <span class="filter-tab" style="{{shareMachineTabStyle}}" onClick="{{setShareMachineFn}}">לפי מכונה</span>
+          <span class="filter-tab" style="{{shareSkuTabStyle}}" onClick="{{setShareSkuFn}}">פירוט מק"טים</span>
+        </div>
+
+        <sc-if value="{{isShareMachine}}" hint-placeholder-val="{{false}}">
+          <div class="panel-sub" style="margin-bottom:10px;">ממוין מהגבוה לנמוך · המספר העליון = תפוקה בפועל (SAP טובים), המספר התחתון = אחוז מתפוקת האגף</div>
+          <div class="chart-bars">
+            <sc-for list="{{outputCombinedChart}}" as="b" hint-placeholder-count="8">
+              <div class="chart-col">
+                <div class="bar-val-v">{{b.valueLabel}}</div>
+                <div class="bar-val-sub">{{b.shareLabel}}</div>
+                <div class="bar-track-v"><div class="bar-fill-v" style="height: {{b.barHeight}}; {{b.colorStyle}}"></div></div>
+                <div class="chart-name">{{b.name}}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{isShareDept}}" hint-placeholder-val="{{true}}">
+          <div class="panel-sub" style="margin-bottom:10px;">חלוקת תפוקת האגף בין המכונות · תפוקה בפועל ואחוז מהאגף ביחד</div>
           <div class="pie-wrap-dept">
             <svg width="190" height="190" viewBox="0 0 200 200">
               <sc-for list="{{outputCombinedDeptPie}}" as="p" hint-placeholder-count="4">

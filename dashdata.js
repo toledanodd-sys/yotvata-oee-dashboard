@@ -128,9 +128,10 @@
   }
 
   // MTBF inputs from aggregated combos (production minutes, failure count)
-  function mtbfFromCombos(combos, day) {
+  function mtbfFromCombos(combos, day, onlyIds) {
     var per = {};
     combos.forEach(function (c) {
+      if (onlyIds && onlyIds.indexOf(c.machine_id) < 0) return;
       var m = per[c.machine_id] = per[c.machine_id] || { prod: 0, fails: 0 };
       if (PROD_STATUSES.indexOf(c.status) >= 0) m.prod += Number(c.minutes) || 0;
       var ev = { status: c.status, stop_group: c.stop_group, description: c.description, production_date: day };
@@ -148,7 +149,8 @@
     return w ? (a / w) * (p / w) * (q / w) * 100 : null;
   }
 
-  function buildModel(type, key, offRows, events, dailyRows, official) {
+  // dept = a department name for the Line Lead view (same screen, scoped to one department; weights = weight within the department)
+  function buildModel(type, key, offRows, events, dailyRows, official, dept) {
     var S = STATIC, r = CAL.range(type, key), day = r.to;   // targets & weights valid at the end of the period
     var deptById = {};
     S.depts.forEach(function (d) { deptById[d.id] = d; });
@@ -163,7 +165,8 @@
     var byMachine = {};
     events.forEach(function (e) { (byMachine[e.machine_id] = byMachine[e.machine_id] || []).push(e); });
 
-    var machines = S.machines.map(function (m) {
+    var deptObj = dept ? S.depts.filter(function (d) { return d.name === dept; })[0] : null;
+    var machines = S.machines.filter(function (m) { return !deptObj || m.department_id === deptObj.id; }).map(function (m) {
       var ev = byMachine[m.id] || [];
       var off = offBy[m.name] || null;
       var t = validOn(S.targets.filter(function (x) { return x.machine_id === m.id; }), day);
@@ -194,7 +197,7 @@
       var tdt = official ? tdtOff : pct(calc.tdt);
       return {
         id: m.id, name: m.name, dept: deptById[m.department_id] ? deptById[m.department_id].name : '', deptId: m.department_id,
-        oee: oee, oeeTarget: t ? Number(t.oee_target) : 0, weight: w ? Number(w.plant_weight) : 0, deptWeight: w ? Number(w.department_weight) : 0,
+        oee: oee, oeeTarget: t ? Number(t.oee_target) : 0, weight: w ? Number(dept ? w.department_weight : w.plant_weight) : 0, deptWeight: w ? Number(w.department_weight) : 0,
         output: sap, tdt: tdt, oeeOff: oeeOff, tdtOff: tdtOff, oeeCalc: pct(calc.oee), tdtCalc: pct(calc.tdt), calc: calc,
         prodMin: prod, fails: fails, mtbfMin: fails ? prod / fails : null, hasEvents: ev.length > 0,
         stations: Object.keys(stations).map(function (k) { return stations[k]; }),
@@ -226,7 +229,7 @@
       };
     }
 
-    var depts = S.depts.map(function (d) {
+    var depts = S.depts.filter(function (d) { return !deptObj || d.id === deptObj.id; }).map(function (d) {
       var list = machines.filter(function (m) { return m.deptId === d.id; });
       var off = offBy[d.name] || null;
       var prod = list.reduce(function (s, m) { return s + m.prodMin; }, 0), fails = list.reduce(function (s, m) { return s + m.fails; }, 0);
@@ -239,9 +242,10 @@
       };
     });
 
-    var plantOff = offRows.filter(function (o) { return o.entity_level === 'PLANT'; })[0] || null;
+    var isTop = function (o) { return dept ? o.entity_name === dept : o.entity_level === 'PLANT'; };
+    var plantOff = offRows.filter(isTop)[0] || null;
     var dailyPlantSap = 0;
-    dailyRows.forEach(function (o) { if (o.entity_level === 'PLANT') dailyPlantSap += Number(o.sap_good_units) || 0; });
+    dailyRows.forEach(function (o) { if (isTop(o)) dailyPlantSap += Number(o.sap_good_units) || 0; });
     var pc = calcGroup(machines, 'weight');
     var prodAll = machines.reduce(function (s, m) { return s + m.prodMin; }, 0), failsAll = machines.reduce(function (s, m) { return s + m.fails; }, 0);
     var unclassified = machines.reduce(function (s, m) { return s + m.calc.unclassified; }, 0);
@@ -254,15 +258,18 @@
         oeeOff: plantOff ? pct(plantOff.oee) : null, tdtOff: plantOff ? pct(plantOff.tdt_pct) : null,
         oee: official ? (plantOff ? pct(plantOff.oee) : null) : pc.oee,
         tdt: official ? (plantOff ? pct(plantOff.tdt_pct) : null) : pc.tdt,
-        output: official ? (plantOff ? Number(plantOff.sap_good_units) || 0 : totalOut) : dailyPlantSap || totalOut,
+        output: official ? (plantOff ? Number(plantOff.sap_good_units) || 0 : null) : (dailyPlantSap || null),
         calc: pc, prodMin: prodAll, fails: failsAll, mtbfMin: failsAll ? prodAll / failsAll : null
       },
-      dq: { unclassified: unclassified, missingRates: missingRates }
+      dq: { unclassified: unclassified, missingRates: missingRates },
+      // official report exported with an entity filter: machines that produced but have no official row, or no plant row
+      offMissing: official ? machines.filter(function (m) { return m.prodMin > 0 && !offBy[m.name]; }).map(function (m) { return m.name; }) : [],
+      plantMissing: official ? !plantOff : dailyRows.length > 0 && !dailyRows.some(isTop)
     };
   }
 
-  function loadPeriod(type, key) {
-    var ck = type + '|' + key;
+  function loadPeriod(type, key, dept) {
+    var ck = type + '|' + key + '|' + (dept || '');
     if (CACHE[ck]) return Promise.resolve(CACHE[ck]);
     var r = CAL.range(type, key), off = officialOf(type, key), L = LAYER[type];
     var jobs;
@@ -280,24 +287,25 @@
       ];
     }
     return Promise.all(jobs).then(function (x) {
-      var model = buildModel(type, key, x[0], x[1], x[2], !!off);
-      return loadHistory(type, key).then(function (h) { model.history = h; CACHE[ck] = model; return model; });
+      var model = buildModel(type, key, x[0], x[1], x[2], !!off, dept);
+      var ids = dept ? model.machines.map(function (m) { return m.id; }) : null;
+      return loadHistory(type, key, dept, ids).then(function (h) { model.history = h; CACHE[ck] = model; return model; });
     });
   }
 
   // previous period + average of the last N periods of the same kind (official plant numbers; MTBF from the daily events)
   var HIST_N = { day: 7, week: 4, month: 3 };
-  function loadHistory(type, key) {
+  function loadHistory(type, key, dept, ids) {
     var keys = [];
     for (var i = 1; i <= HIST_N[type]; i++) keys.push(CAL.step(type, key, -i));
     var L = LAYER[type];
     return Promise.all([
-      selectAll('oee_report_rows?select=period_from,period_to,oee,tdt_pct,sap_good_units&entity_level=eq.PLANT&period_type=eq.' + L +
+      selectAll('oee_report_rows?select=period_from,period_to,oee,tdt_pct,sap_good_units' + (dept ? '&entity_name=eq.' + encodeURIComponent(dept) : '&entity_level=eq.PLANT') + '&period_type=eq.' + L +
         '&period_from=gte.' + keys[keys.length - 1] + '&period_from=lt.' + key),
       Promise.all(keys.map(function (k) {
         var r = CAL.range(type, k);
         var has = INDEX.day.some(function (d) { return d >= r.from && d <= r.to; });
-        return has ? API.rpc('period_combos', { p_layer: 'DAY', p_from: r.from, p_to: r.to }).then(function (c) { return mtbfFromCombos(c || [], r.from); }) : null;
+        return has ? API.rpc('period_combos', { p_layer: 'DAY', p_from: r.from, p_to: r.to }).then(function (c) { return mtbfFromCombos(c || [], r.from, ids); }) : null;
       }))
     ]).then(function (x) {
       var byFrom = {};
@@ -310,8 +318,16 @@
     });
   }
 
-  function reset() { CACHE = {}; STATIC = null; INDEX = null; }
-  function init() { reset(); return Promise.all([loadStatic(), loadIndex()]).then(function () { return INDEX; }); }
+  // init is shared by the plant and department screens; invalidate() (after an upload or a settings change) forces a reload
+  var INIT = null;
+  function invalidate() { INIT = null; }
+  function init() {
+    if (!INIT) {
+      INIT = Promise.all([loadStatic(), loadIndex()]).then(function (x) { CACHE = {}; STATIC = x[0]; INDEX = x[1]; return INDEX; });
+      INIT.catch(function () { INIT = null; });
+    }
+    return INIT;
+  }
 
-  window.OEE_DASH = { init: init, loadPeriod: loadPeriod, cal: CAL, index: function () { return INDEX; }, officialOf: officialOf };
+  window.OEE_DASH = { init: init, invalidate: invalidate, loadPeriod: loadPeriod, cal: CAL, index: function () { return INDEX; }, depts: function () { return STATIC ? STATIC.depts : []; }, officialOf: officialOf };
 })();

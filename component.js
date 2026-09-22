@@ -1,10 +1,25 @@
 /* "מנהל ייצור" dashboard view-model — same outputs and chart logic as the approved canvas mockups
- * (Main + Period selector), fed by the uploaded data (dashdata.js) instead of the mockup's sample day. */
+ * (Main + Period selector), fed by the uploaded data (dashdata.js) instead of the mockup's sample day.
+ * props.scope === 'dept' → the Line Lead screen (approved mockup "Line Lead — אגף"): the same screen scoped
+ * to one department, weights = each machine's weight within the department. */
+const LL_DEPT_KEY = 'oee_ll_dept_v1';
+const MACHINE_COLOR = { 'קומבי': '#4E79A7', 'מטריקס': '#F28E2B', 'מרין': '#9C755F', 'טטרה': '#B07AA1', 'איליג': '#76B7B2', 'טימון': '#EDC948', 'פומבה': '#FF9DA7', 'גלאקסי': '#9D9D9D' };
+const EXTRA_COLORS = ['#59A14F', '#E15759', '#AF7AA1', '#FF9DA7', '#BAB0AC'];
 class Component extends DCLogic {
   constructor(props) {
     super(props);
     this.state = { view: 'home', selectedDept: null, shareView: 'dept', tdtView: 'machine', mtbfView: 'machine',
-      period: 'day', keys: {}, model: null, loading: true, error: null, empty: false };
+      period: 'day', keys: {}, model: null, loading: true, error: null, empty: false, dept: null };
+    this.isLL = !!(props && props.scope === 'dept');
+    if (this.isLL) { try { this.state.dept = localStorage.getItem(LL_DEPT_KEY); } catch (e) { /* private mode */ } }
+  }
+  pickDept(name) {
+    return () => {
+      if (this.state.dept === name) return;
+      this.state.dept = name;
+      try { localStorage.setItem(LL_DEPT_KEY, name); } catch (e) { /* private mode */ }
+      this.load();
+    };
   }
 
   // ----- data loading -----
@@ -22,14 +37,19 @@ class Component extends DCLogic {
       });
       this.lastIdx = { day: idx.day.slice(), week: idx.week.slice(), month: idx.month.slice() };
       this.state.keys = keys; this.state.empty = false;
+      if (this.isLL) {
+        const names = D.depts().map((d) => d.name);
+        if (names.indexOf(this.state.dept) < 0) this.state.dept = names[0] || null;
+      }
       return this.load();
     }).catch((e) => this.setState({ loading: false, error: e.message || String(e) }));
   }
   load() {
     const t = this.state.period, k = this.state.keys[t];
     this.setState({ loading: true, error: null });
-    return window.OEE_DASH.loadPeriod(t, k).then((model) => {
-      if (this.state.period === t && this.state.keys[t] === k) this.setState({ model, loading: false });
+    const dept = this.isLL ? this.state.dept : null;
+    return window.OEE_DASH.loadPeriod(t, k, dept).then((model) => {
+      if (this.state.period === t && this.state.keys[t] === k && (!this.isLL || this.state.dept === dept)) this.setState({ model, loading: false });
     }).catch((e) => this.setState({ loading: false, error: e.message || String(e) }));
   }
   pickPeriod(p) { return () => { if (this.state.period !== p) { this.state.period = p; this.state.view = 'home'; this.load(); } }; }
@@ -52,6 +72,9 @@ class Component extends DCLogic {
     const st = this.state, M = st.model, period = st.period;
     const D = window.OEE_DASH;
     const WORD = { day: 'היום', week: 'השבוע', month: 'החודש' }[period];
+    const LL = this.isLL;
+    const SCOPE = LL ? 'אגפי' : 'מפעלי';          // "OEE מפעלי" / "OEE אגפי"
+    const deptChips = LL ? D.depts().map((d) => ({ label: d.name, style: d.name === st.dept ? 'background: #1c2b45; color: #FFFFFF;' : '', pick: this.pickDept(d.name) })) : [];
     const LAYER_NAME = { day: 'יומי', week: 'שבועי', month: 'חודשי' }[period];
 
     const pct1 = (v) => (v === null || v === undefined ? '—' : (+v).toFixed(1) + '%');
@@ -83,6 +106,7 @@ class Component extends DCLogic {
     const SRC_WAIT = 'background: #F0EFEA; color: #5B594F;';
 
     const base = {
+      deptName: st.dept || '', deptChips,
       isHome: st.view === 'home', isDrill: st.view === 'drill', periods, prevFn: this.stepPeriod(-1), nextFn: this.stepPeriod(1), prevStyle, nextStyle,
       periodLabel: st.keys[period] ? D.cal.label(period, st.keys[period]) : '—',
       shareView: st.shareView, onBack: this.goHome(),
@@ -170,7 +194,7 @@ class Component extends DCLogic {
 
     const pc = P.calc;
     let oeeSrc, tdtSrc;
-    const partialTxt = () => 'חלקי (' + pc.names.join(', ') + ' בלבד, ' + Math.round(pc.share) + '% ממשקל המפעל), לכן לא בר השוואה לרשמי';
+    const partialTxt = () => 'חלקי (' + pc.names.join(', ') + ' בלבד, ' + Math.round(pc.share) + '% ממשקל ' + (LL ? 'האגף' : 'המפעל') + '), לכן לא בר השוואה לרשמי';
     const reasonTxt = () => {
       const r = [];
       if (M.dq.unclassified) r.push(M.dq.unclassified + ' אירועים לא מסווגים');
@@ -184,49 +208,61 @@ class Component extends DCLogic {
       else oeeSrc = 'מחושב: ' + pct1(pc.oee) + ' · פער ' + (P.oeeOff === null ? '—' : gapLabel(pc.oee, P.oeeOff));
       tdtSrc = pc.tdt === null ? 'TDT מחושב: ממתין להגדרת "נכנס ל-TDT" בכללי הסיווג'
         : 'TDT מחושב: ' + pct1(pc.tdt) + ' · פער ' + (P.tdtOff === null ? '—' : gapLabel(pc.tdt, P.tdtOff));
-      plantStats.push({ l: 'OEE', v: pct1(P.oee), n: 'ישירות מדוח ה-OEE · יעד מפעלי משוקלל (כל מכונה בדיוק ביעד שלה): ' + plantOeeTargetWeighted.toFixed(1) + '%', hasSrc: true, src: oeeSrc, tt: tt(P.oee, 'oee', pct1, ptsDelta, false) });
-      plantStats.push({ l: '%TDT', v: pct1(P.tdt), n: 'זמן עצירות מתוך זמן כולל', hasSrc: true, src: tdtSrc, tt: tt(P.tdt, 'tdt', pct1, ptsDelta, true) });
-      plantStats.push({ l: 'תפוקה (SAP טובים)', v: num(P.output), n: 'יחידות טובות שנספרו ב-SAP', hasSrc: false, src: '', tt: tt(P.output, 'output', fmtNum, relDelta) });
+      plantStats.push({ l: 'OEE', v: pct1(P.oee), n: (P.oee === null ? (LL ? 'אין שורת אגף בדוח ה-OEE שהועלה' : 'אין שורת מפעל (יטבתה) בדוח ה-OEE שהועלה') : 'ישירות מדוח ה-OEE') + ' · יעד ' + SCOPE + ' משוקלל (כל מכונה בדיוק ביעד שלה): ' + plantOeeTargetWeighted.toFixed(1) + '%', hasSrc: true, src: oeeSrc, tt: tt(P.oee, 'oee', pct1, ptsDelta, false) });
+      plantStats.push({ l: '%TDT', v: pct1(P.tdt), n: P.tdt === null ? 'אין שורת מפעל (יטבתה) בדוח ה-OEE שהועלה' : 'זמן עצירות מתוך זמן כולל', hasSrc: true, src: tdtSrc, tt: tt(P.tdt, 'tdt', pct1, ptsDelta, true) });
+      plantStats.push({ l: 'תפוקה (SAP טובים)', v: fmtNum(P.output), n: P.output === null ? 'אין שורת מפעל בדוח ה-OEE שהועלה' : 'יחידות טובות שנספרו ב-SAP', hasSrc: false, src: '', tt: tt(P.output, 'output', fmtNum, relDelta) });
     } else {
       const oeeN = pc.oee === null ? 'לא ניתן לחשב — ' + reasonTxt()
-        : pc.partial ? 'מחושב חלקי — ' + pc.names.join(', ') + ' בלבד (' + Math.round(pc.share) + '% ממשקל המפעל) · ' + reasonTxt()
-        : 'מחושב לפי הנוסחה · יעד מפעלי משוקלל: ' + plantOeeTargetWeighted.toFixed(1) + '%';
+        : pc.partial ? 'מחושב חלקי — ' + pc.names.join(', ') + ' בלבד (' + Math.round(pc.share) + '% ממשקל ' + (LL ? 'האגף' : 'המפעל') + ') · ' + reasonTxt()
+        : 'מחושב לפי הנוסחה · יעד ' + SCOPE + ' משוקלל: ' + plantOeeTargetWeighted.toFixed(1) + '%';
       plantStats.push({ l: 'OEE', v: pct1(pc.oee), n: oeeN, hasSrc: true, src: 'יוחלף במספר הרשמי כשהדוח ה' + LAYER_NAME + ' יועלה', tt: tt(pc.oee, 'oee', pct1, ptsDelta, false) });
       plantStats.push({ l: '%TDT', v: pct1(pc.tdt), n: pc.tdt === null ? 'TDT מחושב ממתין להגדרת "נכנס ל-TDT" בכללי הסיווג' : 'מחושב מהאירועים', hasSrc: false, src: '', tt: tt(pc.tdt, 'tdt', pct1, ptsDelta, true) });
-      plantStats.push({ l: 'תפוקה (SAP טובים)', v: num(P.output), n: 'סכום SAP טובים מהדוחות היומיים שעלו (' + M.daysUploaded + ' מתוך ' + M.daysTotal + ' ימים)', hasSrc: false, src: '', tt: tt(P.output, 'output', fmtNum, relDelta) });
+      plantStats.push({ l: 'תפוקה (SAP טובים)', v: fmtNum(P.output), n: 'סכום SAP טובים מהדוחות היומיים שעלו (' + M.daysUploaded + ' מתוך ' + M.daysTotal + ' ימים)', hasSrc: false, src: '', tt: tt(P.output, 'output', fmtNum, relDelta) });
     }
     plantStats.push({ l: 'MTBF', v: hm(P.mtbfMin), n: 'זמן ייצור ÷ מס\' תקלות (' + P.fails + ')', hasSrc: false, src: '', tt: tt(P.mtbfMin, 'mtbf', fmtHm, mtbfDelta) });
 
     // ----- alerts: plant OEE points lost vs each machine's own target (weight × (target − actual)) -----
     const alerts = [];
+    if (M.offMissing.length || M.plantMissing) {
+      alerts.push({ level: 'crit', title: 'דוח ה-OEE שהועלה חלקי — חסרים נתונים רשמיים',
+        detail: (M.plantMissing ? 'אין בו שורת מפעל (יטבתה)' : '') + (M.plantMissing && M.offMissing.length ? ', ו' : '') +
+          (M.offMissing.length ? 'חסרות בו מכונות שעבדו: ' + M.offMissing.join(', ') : '') +
+          '. כנראה הדוח יוצא מה-MES עם סינון ישויות. להפיק מחדש את דוח ה-OEE עם כל הישויות ולהעלות שוב עם אותו דוח האירועים — "החלפה" במסך ההעלאה' });
+    }
     const withOee = MACHINES.filter((m) => m.oee !== null);
     const lost = withOee.map((m) => ({ m, lost: m.weight * (m.oeeTarget - m.oee) / 100 })).filter((x) => x.lost > 0).sort((a, b) => b.lost - a.lost);
-    const noProd = MACHINES.filter((m) => m.oeeTarget > 0 && m.output === 0 && (m.oee === null || m.oee === 0));
+    const noProd = MACHINES.filter((m) => m.oeeTarget > 0 && m.prodMin === 0);
     const worst = lost.filter((x) => noProd.indexOf(x.m) < 0)[0];
     if (worst) {
-      alerts.push({ level: 'crit', title: worst.m.name + ' (' + worst.m.dept + ') — הפסד הנק\' הגדול ביותר מול היעד העצמי שלה',
-        detail: 'OEE ' + pct1(worst.m.oee) + ' מול יעד ' + worst.m.oeeTarget + '% שלה — ' + worst.lost.toFixed(2) + ' נק\' OEE מפעלי אבודים ' + WORD + ', הגבוה ביותר מכל מכונה במפעל (משקל ' + worst.m.weight + '%)' });
+      alerts.push({ level: 'crit', title: LL ? worst.m.name + ' — הפסד הנק\' הגדול ביותר באגף מול היעד העצמי שלה' : worst.m.name + ' (' + worst.m.dept + ') — הפסד הנק\' הגדול ביותר מול היעד העצמי שלה',
+        detail: 'OEE ' + pct1(worst.m.oee) + ' מול יעד ' + worst.m.oeeTarget + '% שלה — ' + worst.lost.toFixed(2) + ' נק\' OEE ' + SCOPE + ' אבודים ' + WORD +
+          (LL ? ' (משקל ' + worst.m.weight + '% באגף)' : ', הגבוה ביותר מכל מכונה במפעל (משקל ' + worst.m.weight + '%)') });
     }
     noProd.slice(0, 2).forEach((m) => {
       const l = m.weight * m.oeeTarget / 100;
-      alerts.push({ level: 'crit', title: m.name + ' (' + m.dept + ') — ללא ייצור ' + WORD,
-        detail: 'OEE 0% מול יעד ' + m.oeeTarget + '% שלה → ' + l.toFixed(2) + ' נק\' OEE מפעלי אבודים. קודם לבדוק אם זו עצירה מתוכננת/סידור עבודה ולא תקלה' });
+      alerts.push({ level: 'crit', title: m.name + (LL ? '' : ' (' + m.dept + ')') + ' — ללא ייצור ' + WORD,
+        detail: 'OEE 0% מול יעד ' + m.oeeTarget + '% שלה → ' + l.toFixed(2) + ' נק\' OEE ' + SCOPE + ' אבודים. קודם לבדוק אם זו עצירה מתוכננת/סידור עבודה ולא תקלה' });
     });
     M.depts.forEach((d) => {
       const ms = d.machines.filter((m) => m.oee !== null && m.output > 0);
       if (ms.length >= 2 && ms.every((m) => m.oee < m.oeeTarget)) {
-        alerts.push({ level: 'warn', title: d.name + ' — כל האגף מתחת ליעד, לא רק מכונה בודדת',
+        alerts.push({ level: 'warn', title: LL ? 'כל קווי האגף מתחת ליעד, לא רק מכונה בודדת' : d.name + ' — כל האגף מתחת ליעד, לא רק מכונה בודדת',
           detail: ms.map((m) => m.name + ' (' + pct1(m.oee) + ' מול יעד ' + m.oeeTarget + '%)').join(' וגם ') + ' מתחת ליעד שלהן. כשכל קווי הייצור באגף חורגים ביחד, כדאי לבדוק גורם משותף (כוח אדם, חומר גלם, משמרת) ולא רק תקלת ציוד נקודתית' });
       }
     });
     const second = lost.filter((x) => x !== worst && noProd.indexOf(x.m) < 0)[0];
     if (second && alerts.length < 4) {
-      alerts.push({ level: 'warn', title: second.m.name + ' (' + second.m.dept + ') — מתחת ליעד',
-        detail: 'OEE ' + pct1(second.m.oee) + ' מול יעד ' + second.m.oeeTarget + '% — ' + second.lost.toFixed(2) + ' נק\' OEE מפעלי אבודים ' + WORD });
+      alerts.push({ level: 'warn', title: second.m.name + (LL ? '' : ' (' + second.m.dept + ')') + ' — מתחת ליעד',
+        detail: 'OEE ' + pct1(second.m.oee) + ' מול יעד ' + second.m.oeeTarget + '% — ' + second.lost.toFixed(2) + ' נק\' OEE ' + SCOPE + ' אבודים ' + WORD });
     }
     if (M.dq.unclassified || M.dq.missingRates.length) {
       alerts.push({ level: 'info', title: 'איכות נתונים — החישוב הפנימי חלקי',
         detail: reasonTxt() + '. אפשר להשלים ב"הגדרות מערכת" (כללי סיווג / מוצרים וקצב מטרה), והחישוב יתעדכן. המספרים הרשמיים לא מושפעים' });
+    }
+    if (LL) {
+      // in the department view, machines that met their target get a grey line too, so the list is not only red
+      MACHINES.filter((m) => m.oee !== null && m.prodMin > 0 && m.oee >= m.oeeTarget).forEach((m) => alerts.push({ level: 'info', title: m.name + ' — עמדה ביעד ' + WORD,
+        detail: 'OEE ' + pct1(m.oee) + ' מול יעד ' + m.oeeTarget + '% · תרומה ' + (m.contribution || 0).toFixed(2) + ' נק\' לאגף' }));
     }
     if (!alerts.length) alerts.push({ level: 'info', title: 'כל המכונות עמדו ביעד ' + WORD, detail: 'אין מכונה שה-OEE שלה מתחת ליעד העצמי שלה' });
     const ALERT_COLORS = { crit: { row: '#FEF2F2', dot: '#DC2626' }, warn: { row: '#FFFBEB', dot: '#D97706' }, info: { row: '#F1F5F9', dot: '#475569' } };
@@ -284,10 +320,12 @@ class Component extends DCLogic {
         skus: skus.map((p) => ({ sku: p.sku, desc: p.desc, qtyLabel: fmtQty(p.qty, p.unit) })) };
     });
 
-    const totals = M.depts.map((d) => {
-      const rows = MACHINES.filter((m) => m.deptId === d.id);
-      return { name: d.name, output: rows.reduce((s, m) => s + m.output, 0), share: rows.reduce((s, m) => s + m.outputShare, 0) };
-    }).filter((t) => t.output > 0);
+    const totals = (LL
+      ? MACHINES.slice().sort((a, b) => b.output - a.output).map((m, i) => ({ name: m.name, output: m.output, share: m.outputShare, color: MACHINE_COLOR[m.name] || EXTRA_COLORS[i % EXTRA_COLORS.length] }))
+      : M.depts.map((d) => {
+        const rows = MACHINES.filter((m) => m.deptId === d.id);
+        return { name: d.name, output: rows.reduce((s, m) => s + m.output, 0), share: rows.reduce((s, m) => s + m.outputShare, 0), color: DEPT_COLOR[d.name] };
+      })).filter((t) => t.output > 0);
     const grand = totals.reduce((s, t) => s + t.output, 0) || 1;
     const CX = 100, CY = 100, R = 92;
     let cum = -90;
@@ -299,8 +337,8 @@ class Component extends DCLogic {
         ' A ' + R + ' ' + R + ' 0 ' + (ang > 180 ? 1 : 0) + ' 1 ' + (CX + R * Math.cos(r1)).toFixed(2) + ' ' + (CY + R * Math.sin(r1)).toFixed(2) + ' Z';
       const mid = ((a0 + a1) / 2) * Math.PI / 180;
       cum = a1;
-      return { name: t.name, valueLabel: formatK(t.output), shareLabel: t.share.toFixed(1) + '%', fillStyle: 'fill:' + DEPT_COLOR[t.name] + ';',
-        dotStyle: 'background:' + DEPT_COLOR[t.name] + ';', path, labelX: (CX + R * 0.62 * Math.cos(mid)).toFixed(1), labelY: (CY + R * 0.62 * Math.sin(mid)).toFixed(1), showLabel: p >= 8 };
+      return { name: t.name, valueLabel: formatK(t.output), shareLabel: t.share.toFixed(1) + '%', fillStyle: 'fill:' + t.color + ';',
+        dotStyle: 'background:' + t.color + ';', path, labelX: (CX + R * 0.62 * Math.cos(mid)).toFixed(1), labelY: (CY + R * 0.62 * Math.sin(mid)).toFixed(1), showLabel: p >= 8 };
     });
 
     const contributionBulletChart = MACHINES.map((m) => {

@@ -291,6 +291,13 @@ select.s-input { appearance: auto; }
   .s-toolbar { flex-direction: column; align-items: stretch; }
   .s-toolbar .s-input { width: auto !important; }
 }
+/* role switch in the app bar: plant view (production manager) / department view (Line Lead) */
+.role-seg { display: inline-flex; background: rgba(255,255,255,0.08); border-radius: 10px; padding: 3px; gap: 2px; flex-shrink: 0; }
+.role-seg a { font-size: 12.5px; font-weight: 700; color: #e9e2cc; text-decoration: none; border-radius: 8px; padding: 0 12px; min-height: 32px; display: inline-flex; align-items: center; }
+.role-seg a:hover { background: rgba(255,255,255,0.12); }
+.role-seg a.active { background: #e9e2cc; color: #1c2b45; }
+@media (max-width: 520px) { .role-seg a { padding: 0 9px; font-size: 12px; } }
+@media (max-width: 520px) { .appbar-end #conn { display: none; } .appbar-role { max-width: 150px; } }
 
 /* ===== Upload page (from the approved mockup) ===== */
   .u-cover { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
