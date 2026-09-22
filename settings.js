@@ -5,7 +5,7 @@
   'use strict';
 
   var API = window.OEE_API;
-  var root, appRole;
+  var root;
 
   // ---------- small helpers ----------
   function esc(v) {
@@ -127,7 +127,7 @@
     render();
     return API.rpc('am_i_admin').then(function (isAdmin) {
       if (!isAdmin) { S.mode = 'notadmin'; render(); return; }
-      return loadData().then(function () { S.mode = 'ready'; render(); });
+      return loadData().then(function () { S.mode = 'ready'; render(); window.OEE_ROUTER.refreshAdminUI(); });
     }).catch(function (e) {
       S.mode = 'login';
       S.authMsg = e.message;
@@ -168,7 +168,6 @@
     if (S.authMsg) h += '<div class="s-muted s-bad" style="margin-bottom: 10px;">' + esc(S.authMsg) + '</div>';
     h += '<button class="s-btn" type="submit" style="width: 100%;"' + (S.busy ? ' disabled' : '') + '>' + (signup ? 'יצירת חשבון' : 'כניסה') + '</button>';
     h += '</form>';
-    h += '<button class="s-link" type="button" data-act="toggle-signup">' + (signup ? 'כבר יש לי חשבון — כניסה' : 'פעם ראשונה? יצירת חשבון מנהל') + '</button>';
     h += '</div></div>';
     return h;
   }
@@ -589,7 +588,7 @@
     var d = S.data;
 
     if (act === 'toggle-signup') { S.mode = S.mode === 'signup' ? 'login' : 'signup'; S.authMsg = ''; render(); return; }
-    if (act === 'logout') { API.signOut().then(function () { S.mode = 'login'; S.data = null; S.form = null; render(); }); return; }
+    if (act === 'logout') { API.signOut().then(function () { S.mode = 'login'; S.data = null; S.form = null; render(); window.OEE_ROUTER.refreshAdminUI(); }); return; }
     if (act === 'tab') { S.tab = btn.getAttribute('data-tab'); S.form = null; render(); return; }
     if (act === 'cancel') { S.form = null; render(); return; }
 
@@ -719,37 +718,18 @@
     else if (t.id === 'f-search') { S.search = t.value; applySearch(); }
   }
 
-  // ---------- routing ----------
-  function route() {
-    var inSettings = location.hash.indexOf('#/settings') === 0;
-    var dash = document.getElementById('root');
-    dash.hidden = inSettings;
-    root.hidden = !inSettings;
-    var gear = document.getElementById('gear');
-    if (gear) {
-      gear.classList.toggle('active', inSettings);
-      gear.setAttribute('href', inSettings ? '#/' : '#/settings');
-      gear.setAttribute('aria-label', inSettings ? 'חזרה לדשבורד' : 'הגדרות');
-    }
-    if (appRole) appRole.textContent = inSettings ? 'הגדרות מערכת — מנהל בלבד' : 'מנהל ייצור — תצוגת מפעל יומית';
-    window.scrollTo(0, 0);
-    if (inSettings) {
-      if (!S.started) { S.started = true; start(); }
-    } else if (S.dirty && window.__reloadDashboard) {
-      S.dirty = false;
-      window.__reloadDashboard();
-    }
-  }
-
+  // ---------- page registration ----------
   function init() {
     root = document.getElementById('settings-root');
-    appRole = document.querySelector('.appbar-role');
     root.addEventListener('click', onClick);
     root.addEventListener('submit', onSubmit);
     root.addEventListener('input', onInput);
     root.addEventListener('change', onInput);
-    window.addEventListener('hashchange', route);
-    route();
+    window.OEE_ROUTER.register('#/settings', root, 'הגדרות מערכת — מנהל בלבד', function () {
+      if (!S.started) { S.started = true; start(); }
+    }, function () {
+      if (S.dirty && window.__reloadDashboard) { S.dirty = false; window.__reloadDashboard(); }
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

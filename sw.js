@@ -1,7 +1,7 @@
 // Service worker: caches the app shell so the installed app opens instantly.
 // Data requests (Supabase) are never cached here — they always go to the network.
-const CACHE = 'oee-shell-7c364da88d';
-const SHELL = ["./", "./index.html", "./styles.css", "./app.js", "./component.js", "./api.js", "./settings.js", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png"];
+const CACHE = 'oee-shell-4d56fc5243';
+const SHELL = ["./", "./index.html", "./styles.css", "./app.js", "./component.js", "./api.js", "./settings.js", "./router.js", "./engine.js", "./upload.js", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png"];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
