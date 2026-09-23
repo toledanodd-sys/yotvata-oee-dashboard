@@ -119,7 +119,12 @@
       off ? selectAll('oee_report_rows?select=' + OEE_COLS + '&upload_id=eq.' + off.OEE) : Promise.resolve(null),
       selectAll('oee_report_rows?select=' + OEE_COLS + '&period_type=eq.DAY&period_from=gte.' + (t === 'day' ? addDays(k, -13) : r.from) + '&period_from=lte.' + r.to),
       selectAll('oee_report_rows?select=' + OEE_COLS + '&period_type=eq.WEEK&period_from=gte.' + histFrom + '&period_from=lte.' + r.to),
-      API.rpc('period_combos', { p_layer: 'DAY', p_from: pr.from, p_to: pr.to }).then(function (x) { return x || []; }, function () { return []; })
+      // previous period: its official report when one exists (same rule as the current period), else the daily reports
+      (function () {
+        var po = officialOf(t, pk);
+        var args = po ? { p_layer: LAYER[t], p_from: pr.from, p_to: pr.to, p_upload: po.RAW } : { p_layer: 'DAY', p_from: pr.from, p_to: pr.to };
+        return API.rpc('period_combos', args).then(function (x) { return x || []; }, function () { return []; });
+      })()
     ];
     return Promise.all(jobs).then(function (x) {
       var m = buildModel(t, k, r, off, x[0], x[1], x[2], x[3], x[4]);

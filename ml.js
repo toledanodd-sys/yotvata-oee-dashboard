@@ -105,11 +105,19 @@
   /* ---------- loading ---------- */
   var CACHE = {};
   var RAW_COLS = 'status,stop_group,station,description,production_date,start_at,duration_min';
-  function rawOf(machineId, from, to) {
-    return D.selectAll('raw_events?select=' + RAW_COLS + '&period_type=eq.DAY&production_date=gte.' + from +
-      '&production_date=lte.' + to + '&machine_id=eq.' + machineId + '&order=start_at');
+  function rawOf(machineId, type, key) {
+    var r = D.cal.range(type, key), rawId = D.officialRawOf(type, key);
+    var q = rawId ? '&upload_id=eq.' + rawId : '&period_type=eq.DAY&production_date=gte.' + r.from + '&production_date=lte.' + r.to;
+    return D.selectAll('raw_events?select=' + RAW_COLS + q + '&machine_id=eq.' + machineId + '&order=start_at');
   }
-  function combos(machineId, from, to) {
+  function combos(machineId, type, key) {
+    var r = D.cal.range(type, key), rawId = D.officialRawOf(type, key);
+    var args = rawId ? { p_layer: { week: 'WEEK', month: 'MONTH' }[type], p_from: r.from, p_to: r.to, p_upload: rawId } : { p_layer: 'DAY', p_from: r.from, p_to: r.to };
+    return API.rpc('period_combos', args).then(function (rows) {
+      return (rows || []).filter(function (r) { return r.machine_id === machineId; });
+    });
+  }
+  function dailyCombos(machineId, from, to) {
     return API.rpc('period_combos', { p_layer: 'DAY', p_from: from, p_to: to }).then(function (rows) {
       return (rows || []).filter(function (r) { return r.machine_id === machineId; });
     });
@@ -120,7 +128,7 @@
     return Promise.all(keys.map(function (wk) {
       var wr = D.cal.range('week', wk);
       var from = wr.from < r.from ? r.from : wr.from, to = wr.to > r.to ? r.to : wr.to;   // clipped to the month
-      return combos(machineId, from, to).then(function (c) { return { key: wk, from: from, to: to, agg: scanCombos(c, machineId, to) }; });
+      return dailyCombos(machineId, from, to).then(function (c) { return { key: wk, from: from, to: to, agg: scanCombos(c, machineId, to) }; });
     }));
   }
 
@@ -135,15 +143,15 @@
     var prevKeys = [];
     for (var i = 1; i <= n; i++) { var j = at - i; if (j >= 0) prevKeys.push(list[j]); }
     var jobs = [
-      rawOf(machineId, r.from, r.to),
+      rawOf(machineId, type, key),
       Promise.all(prevKeys.map(function (k) {
         var pr = D.cal.range(type, k);
-        return combos(machineId, pr.from, pr.to).then(function (c) { return { key: k, from: pr.from, to: pr.to, agg: scanCombos(c, machineId, pr.to) }; });
+        return combos(machineId, type, k).then(function (c) { return { key: k, from: pr.from, to: pr.to, agg: scanCombos(c, machineId, pr.to) }; });
       })),
       type === 'month' ? weeksOfMonth(machineId, r) : Promise.resolve([]),
       // the weekly screen compares the repair-time distribution and the stations with the previous week,
       // and that needs the events themselves — combos hold neither station nor per-event duration
-      (type === 'week' && prevKeys.length) ? rawOf(machineId, D.cal.range('week', prevKeys[0]).from, D.cal.range('week', prevKeys[0]).to) : Promise.resolve(null)
+      (type === 'week' && prevKeys.length) ? rawOf(machineId, 'week', prevKeys[0]) : Promise.resolve(null)
     ];
     return Promise.all(jobs).then(function (x) {
       var m = buildModel(machineId, type, key, x[0], x[1], x[2], x[3]);

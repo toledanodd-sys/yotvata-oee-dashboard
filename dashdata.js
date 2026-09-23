@@ -112,6 +112,12 @@
     var o = INDEX.official[LAYER[type] + '|' + r.from + '|' + r.to];
     return o && o.OEE && o.RAW ? o : null;
   }
+  function officialRawOf(type, key) {
+    if (type === 'day') return null;
+    var r = CAL.range(type, key);
+    var o = INDEX.official[LAYER[type] + '|' + r.from + '|' + r.to];
+    return o && o.RAW ? o.RAW : null;
+  }
 
   var RAW_COLS = 'machine_id,production_date,status,stop_group,station,description,sku,duration_min,output_qty,output_uom';
   var OEE_COLS = 'entity_level,entity_name,machine_id,period_from,period_to,oee,availability,performance,quality,tdt_pct,sap_good_units,net_minutes';
@@ -304,8 +310,10 @@
         '&period_from=gte.' + keys[keys.length - 1] + '&period_from=lt.' + key),
       Promise.all(keys.map(function (k) {
         var r = CAL.range(type, k);
-        var has = INDEX.day.some(function (d) { return d >= r.from && d <= r.to; });
-        return has ? API.rpc('period_combos', { p_layer: 'DAY', p_from: r.from, p_to: r.to }).then(function (c) { return mtbfFromCombos(c || [], r.from, ids); }) : null;
+        var rawId = officialRawOf(type, k);
+        var has = rawId || INDEX.day.some(function (d) { return d >= r.from && d <= r.to; });
+        var args = rawId ? { p_layer: L, p_from: r.from, p_to: r.to, p_upload: rawId } : { p_layer: 'DAY', p_from: r.from, p_to: r.to };
+        return has ? API.rpc('period_combos', args).then(function (c) { return mtbfFromCombos(c || [], r.from, ids); }) : null;
       }))
     ]).then(function (x) {
       var byFrom = {};
@@ -329,5 +337,5 @@
     return INIT;
   }
 
-  window.OEE_DASH = { init: init, invalidate: invalidate, static: function () { return STATIC; }, selectAll: selectAll, loadPeriod: loadPeriod, cal: CAL, index: function () { return INDEX; }, depts: function () { return STATIC ? STATIC.depts : []; }, officialOf: officialOf };
+  window.OEE_DASH = { init: init, invalidate: invalidate, static: function () { return STATIC; }, selectAll: selectAll, loadPeriod: loadPeriod, cal: CAL, index: function () { return INDEX; }, depts: function () { return STATIC ? STATIC.depts : []; }, officialOf: officialOf, officialRawOf: officialRawOf };
 })();

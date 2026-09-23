@@ -110,8 +110,15 @@
     return D.selectAll('oee_report_rows?select=period_from,oee,availability,performance,tdt_pct,sap_good_units&period_type=eq.DAY&period_from=gte.' + from +
       '&period_from=lte.' + to + '&machine_id=eq.' + machineId + '&order=period_from');
   }
-  function combos(machineId, from, to) {
-    return API.rpc('period_combos', { p_layer: 'DAY', p_from: from, p_to: to }).then(function (rows) {
+  function rawOf(machineId, type, key) {
+    var r = D.cal.range(type, key), rawId = D.officialRawOf(type, key);
+    var q = rawId ? '&upload_id=eq.' + rawId : '&period_type=eq.DAY&production_date=gte.' + r.from + '&production_date=lte.' + r.to;
+    return D.selectAll('raw_events?select=' + RAW_COLS + q + '&machine_id=eq.' + machineId + '&order=start_at');
+  }
+  function combos(machineId, type, key) {
+    var r = D.cal.range(type, key), rawId = D.officialRawOf(type, key);
+    var args = rawId ? { p_layer: { week: 'WEEK', month: 'MONTH' }[type], p_from: r.from, p_to: r.to, p_upload: rawId } : { p_layer: 'DAY', p_from: r.from, p_to: r.to };
+    return API.rpc('period_combos', args).then(function (rows) {
       return (rows || []).filter(function (r) { return r.machine_id === machineId; });
     });
   }
@@ -125,11 +132,11 @@
     for (var i = 1; i <= n; i++) prevKeys.push(D.cal.step(type, key, -i));
     var jobs = [
       officialRow(type, r.from, r.to, machineId),
-      D.selectAll('raw_events?select=' + RAW_COLS + '&period_type=eq.DAY&production_date=gte.' + r.from + '&production_date=lte.' + r.to + '&machine_id=eq.' + machineId + '&order=start_at'),
+      rawOf(machineId, type, key),
       dailyRows(r.from, r.to, machineId),
       Promise.all(prevKeys.map(function (k) {
         var pr = D.cal.range(type, k);
-        return Promise.all([combos(machineId, pr.from, pr.to), dailyRows(pr.from, pr.to, machineId)])
+        return Promise.all([combos(machineId, type, k), dailyRows(pr.from, pr.to, machineId)])
           .then(function (x) { return { key: k, from: pr.from, to: pr.to, combos: x[0], daily: x[1] }; });
       })),
       type === 'month' ? weeksOfMonth(machineId, r) : Promise.resolve([])
