@@ -31,7 +31,7 @@
 <main id="root"></main>
 <main id="ll-root" hidden></main>
 <main id="pl-root" hidden></main>
-<main id="ml-root" hidden><div class="page"><div class="soon-card"><div class="soon-tag">בשלבי אפיון</div><div class="soon-title">Maintenance Lead</div><div class="soon-text">המסך של ה-Maintenance Lead עדיין באפיון. בינתיים אפשר לעבור ל"מנהל ייצור" או ל-"LL" בסרגל העליון.</div></div></div></main>
+<main id="ml-root" hidden></main>
 <main id="settings-root" hidden></main>
 <main id="upload-root" hidden></main>
 <template id="view">
@@ -901,6 +901,304 @@
   </div>
 
 </sc-if></div></template>
+<template id="view-ml">
+<div class="page pl-page ml-page">
+  <div class="banner">{{bannerText}}</div>
+  <div style="font-size: 22px; font-weight: 700; margin-bottom: 2px;">Maintenance Lead — אמינות הציוד</div>
+  <div style="font-size: 12.5px; color: #8A8776; margin-bottom: 14px;">{{subTitle}}</div>
+  <div class="pbar" style="margin-bottom: 10px;">
+    <span style="font-size: 12.5px; font-weight: 700; color: #5B594F; padding: 0 4px;">קו</span>
+    <div class="pseg" role="group" aria-label="קו">
+      <sc-for list="{{machineChips}}" as="c" hint-placeholder-count="8">
+        <button class="pl-chip" type="button" style="{{c.style}}" onClick="{{c.pick}}">{{c.name}}</button>
+      </sc-for>
+    </div>
+  </div>
+  <div class="pbar">
+    <div class="pseg" role="group" aria-label="תקופה">
+      <sc-for list="{{periods}}" as="p" hint-placeholder-count="3"><button class="pseg-btn" type="button" style="{{p.style}}" onClick="{{p.pick}}">{{p.label}}</button></sc-for>
+    </div>
+    <div class="pnav">
+      <button class="pnav-btn" type="button" aria-label="תקופה קודמת" style="{{prevStyle}}" onClick="{{prevFn}}">→</button>
+      <span class="pnav-label">{{periodLabel}}</span>
+      <button class="pnav-btn" type="button" aria-label="תקופה הבאה" style="{{nextStyle}}" onClick="{{nextFn}}">←</button>
+    </div>
+    <span class="psrc" style="{{srcStyle}}">{{srcLabel}}</span>
+  </div>
+  <div class="psrc-note">{{srcNote}}</div>
+  <div class="stat-row" style="margin-bottom: 22px;">
+    <sc-for list="{{kpis}}" as="s" hint-placeholder-count="4">
+      <div class="card card-plant"><div class="l">{{s.l}}</div><div class="v">{{s.v}}</div><sc-if value="{{s.hasSub}}" hint-placeholder-val="{{false}}"><div class="card-sub">{{s.sub}}</div></sc-if><div class="kpi-delta" style="{{s.deltaStyle}}">{{s.delta}}</div><div class="n">{{s.n}}</div></div>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{isDay}}" hint-placeholder-val="{{true}}"><div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">תקלות לפי תחנה — איפה הציוד נופל</div>
+    <div class="panel-sub">לכל תחנה: כמה זמן היא עצרה את הקו, כמה פעמים, וכמה זמן לקח תיקון ממוצע (MTTR). תחנה עם הרבה מופעים קצרים והתחנה עם תקלה אחת ארוכה דורשות טיפול שונה</div>
+    <div class="ml-row ml-head"><div>תחנה</div><div>משך מצטבר</div><div>מס\' תקלות</div><div>MTTR</div><div>הארוכה ביותר</div></div>
+    <sc-for list="{{stations}}" as="s" hint-placeholder-count="6">
+      <div class="ml-row">
+        <div><b>{{s.name}}</b></div>
+        <div class="par-track"><div class="par-fill" style="{{s.fillStyle}}"></div></div>
+        <div class="par-min">{{s.tot}}</div>
+        <div>{{s.n}}</div>
+        <div class="par-cumtxt">{{s.mttr}} · {{s.longest}}</div>
+      </div>
+    </sc-for>
+  </div>
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">פיזור זמני התיקון — מיקרו-עצירות מול תקלות שבר</div>
+    <div class="panel-sub">כמה תקלות היו בכל טווח זמן, וכמה זמן הן לקחו ביחד. הרבה עצירות קצרות מצביעות על תנאי בסיס ועל תחזוקה אוטונומית; מעט תקלות ארוכות מצביעות על כשל ציוד שדורש BDE</div>
+    <div class="buck-grid">
+      <sc-for list="{{buckets}}" as="b" hint-placeholder-count="5">
+        <div>
+          <div class="trend-val" style="text-align: center;">{{b.n}}</div>
+          <div class="buck-wrap"><div class="buck-bar" style="{{b.barStyle}}"></div></div>
+          <div class="buck-name">{{b.name}}</div>
+          <div class="buck-sub">{{b.tot}}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div class="panel-sub" style="margin-top: 12px;">{{bucketNote}}</div>
+  </div>
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">תקלות חוזרות — 7 הימים האחרונים (מועמדות ל-BDE)</div>
+    <div class="panel-sub">אותה תקלה, אותה תחנה, לאורך השבוע. תקלה שחוזרת ברוב הימים היא מועמדת ל-UPS ולעדכון תוכנית התחזוקה; אירוע חד-פעמי ארוך מתאים לתחקיר IPS ולבדיקת חלק או פרמטר</div>
+    <div class="ml-row ml-head" style="grid-template-columns: minmax(0,1.6fr) 90px 80px 74px 150px;"><div>תקלה · תחנה</div><div>משך מצטבר</div><div>מופעים</div><div>ימים</div><div>המלצה</div></div>
+    <sc-for list="{{repeats}}" as="r" hint-placeholder-count="10">
+      <div class="ml-row" style="grid-template-columns: minmax(0,1.6fr) 90px 80px 74px 150px;">
+        <div class="par-desc"><b>{{r.desc}}</b><span>{{r.station}} · MTTR {{r.mttr}}</span></div>
+        <div class="par-min">{{r.tot}}</div>
+        <div>{{r.n}}</div>
+        <div>{{r.days}}</div>
+        <div class="rec-tag" style="{{r.tagStyle}}">{{r.tag}}</div>
+      </div>
+    </sc-for>
+  </div>
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">מתוכנן מול שבר — 7 ימים</div>
+    <div class="panel-sub">לכל יום: כמה זמן הלך על אחזקה מתוכננת ומונעת, וכמה על תיקוני שבר. היעד ב-IWS הוא להעביר זמן מהעמודה האדומה לעמודה הכחולה</div>
+    <div class="split-bar">
+      <sc-for list="{{split}}" as="s" hint-placeholder-count="2"><div class="split-seg" style="{{s.style}}">{{s.label}}</div></sc-for>
+    </div>
+    <div class="pm-grid" style="margin-top: 14px;">
+      <sc-for list="{{pmDays}}" as="d" hint-placeholder-count="7">
+        <div>
+          <div class="pm-stack"><sc-for list="{{d.parts}}" as="p" hint-placeholder-count="2"><div style="{{p.style}}"></div></sc-for></div>
+          <div class="buck-name">{{d.name}}</div>
+          <div class="buck-sub">{{d.txt}}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div class="leg">
+      <sc-for list="{{pmLegend}}" as="l" hint-placeholder-count="2"><span class="leg-item"><span class="leg-sw" style="{{l.style}}"></span>{{l.name}}</span></sc-for>
+    </div>
+    <div class="panel-sub" style="margin-top: 10px;">{{pmNote}}</div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">יומן התקלות של היום (5 דקות ומעלה)</div>
+    <div class="panel-sub">לפי סדר השעות — הבסיס למסירה למשמרת הבאה ולפתיחת תחקיר</div>
+    <div class="log-row ml-head"><div>שעה</div><div>משך</div><div>תחנה</div><div>תיאור התקלה</div></div>
+    <sc-for list="{{log}}" as="e" hint-placeholder-count="14">
+      <div class="log-row">
+        <div class="ev-time">{{e.t}}</div>
+        <div class="ev-dur" style="{{e.durStyle}}">{{e.dur}}</div>
+        <div>{{e.station}}</div>
+        <div>{{e.desc}}</div>
+      </div>
+    </sc-for>
+  </div>
+
+</sc-if><sc-if value="{{isWeek}}" hint-placeholder-val="{{false}}"><div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">מגמת אמינות — 4 שבועות</div>
+    <div class="panel-sub">MTBF הוא הזמן הממוצע בין תקלה לתקלה — ככל שהוא עולה הציוד אמין יותר. מתחת לכל עמודה ה-MTTR של אותו שבוע: כמה זמן לקח בממוצע להחזיר את הקו לעבודה</div>
+    <div class="trend-grid">
+      <sc-for list="{{weeks}}" as="x" hint-placeholder-count="4">
+        <div class="trend-col">
+          <div class="trend-val">{{x.val}}</div>
+          <div class="trend-bar-wrap"><div class="trend-bar" style="{{x.barStyle}}"></div></div>
+          <div class="trend-name">{{x.name}}</div>
+          <div class="trend-delta" style="{{x.deltaStyle}}">{{x.delta}}</div>
+          <div class="mt-sub">{{x.mttr}}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div class="panel-sub" style="margin-top: 12px;">{{trendNote}}</div>
+  </div>
+
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">יום אחרי יום — כמה זמן הקו היה מושבת בגלל שבר</div>
+    <div class="panel-sub">מעל כל עמודה ה-MTBF של אותו יום. העמודה מראה את זמן ההשבתה: אדום — תיקוני שבר, כחול — אחזקה מתוכננת שבוצעה באותו יום</div>
+    <div class="pm-grid">
+      <sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+        <div>
+          <div class="day-head"><div class="day-oee">{{d.mtbf}}</div></div>
+          <div class="pm-stack"><sc-for list="{{d.parts}}" as="p" hint-placeholder-count="2"><div style="{{p.style}}"></div></sc-for></div>
+          <div class="buck-name">{{d.name}}</div>
+          <div class="buck-sub">{{d.txt}}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div class="leg">
+      <sc-for list="{{legend}}" as="l" hint-placeholder-count="2"><span class="leg-item"><span class="leg-sw" style="{{l.style}}"></span>{{l.name}}</span></sc-for>
+    </div>
+    <div class="panel-sub" style="margin-top: 10px;">{{dayNote}}</div>
+  </div>
+
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">תחנות — השבוע מול השבוע הקודם</div>
+    <div class="panel-sub">איזו תחנה צורכת הכי הרבה זמן אחזקה, והאם היא החמירה או השתפרה. תחנה שהחמירה שבוע אחרי שבוע היא היעד הראשון לתוכנית BDE</div>
+    <div class="ml-row ml-head"><div>תחנה</div><div>משך מצטבר השבוע</div><div>סה"כ</div><div>מס\' תקלות</div><div>מול השבוע הקודם</div></div>
+    <sc-for list="{{stations}}" as="s" hint-placeholder-count="8">
+      <div class="ml-row">
+        <div><b>{{s.name}}</b><span class="mt-sub">MTTR {{s.mttr}} · {{s.days}}</span></div>
+        <div class="par-track"><div class="par-fill" style="{{s.fillStyle}}"></div></div>
+        <div class="par-min">{{s.tot}}</div>
+        <div>{{s.n}}</div>
+        <div><span class="chg" style="{{s.chgStyle}}">{{s.chg}}</span></div>
+      </div>
+    </sc-for>
+    <div class="panel-sub" style="margin-top: 10px;">{{stationNote}}</div>
+  </div>
+
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">תקלות חוזרות — מגמה לאורך 4 שבועות (מועמדות ל-BDE)</div>
+    <div class="panel-sub">כמה דקות הלכו על כל תקלה בכל שבוע. תקלה שנשארת גבוהה או עולה היא מועמדת ל-UPS ולעדכון תוכנית האחזקה; תקלה שירדה מראה שהפעולה שנעשתה עבדה וניתן לסגור את ה-BDE</div>
+    <div class="rec-row rec-head" style="grid-template-columns: minmax(0,1.6fr) repeat(4, 56px) 70px 78px 190px;">
+      <div>תקלה · תחנה</div>
+      <sc-for list="{{weekCols}}" as="c" hint-placeholder-count="4"><div style="text-align: center;">{{c}}</div></sc-for>
+      <div>סה"כ</div><div>מופעים</div><div>מצב</div>
+    </div>
+    <sc-for list="{{recurring}}" as="r" hint-placeholder-count="10">
+      <div class="rec-row" style="grid-template-columns: minmax(0,1.6fr) repeat(4, 56px) 70px 78px 190px;">
+        <div class="par-desc"><b>{{r.desc}}</b><span>{{r.sub}}</span></div>
+        <sc-for list="{{r.cells}}" as="c" hint-placeholder-count="4"><div class="rec-cell" style="{{c.style}}">{{c.v}}</div></sc-for>
+        <div class="par-min">{{r.tot}}</div>
+        <div class="par-cumtxt">{{r.n}}</div>
+        <div class="rec-tag" style="{{r.tagStyle}}">{{r.tag}}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">אחזקה מתוכננת מול שבר — 4 שבועות</div>
+    <div class="panel-sub">היעד ב-IWS הוא להעביר זמן מהעמודה האדומה (תיקון אחרי שנשבר) לכחולה (אחזקה מתוכננת ומונעת). מימין באחוזים — חלק האחזקה המתוכננת מסך זמן האחזקה של אותו שבוע</div>
+    <sc-for list="{{pmWeeks}}" as="p" hint-placeholder-count="4">
+      <div class="pmw-row">
+        <div><b>{{p.name}}</b><span class="mt-sub">{{p.sub}}</span></div>
+        <div class="split-bar"><sc-for list="{{p.segs}}" as="s" hint-placeholder-count="2"><div class="split-seg" style="{{s.style}}">{{s.label}}</div></sc-for></div>
+        <div class="par-min">{{p.pct}}</div>
+        <div class="par-cumtxt">{{p.days}}</div>
+      </div>
+    </sc-for>
+    <div class="panel-sub" style="margin-top: 10px;">{{pmNote}}</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">פיזור זמני התיקון — השבוע מול השבוע הקודם</div>
+    <div class="panel-sub">כמה תקלות היו בכל טווח זמן. ירידה במיקרו-עצירות מצביעה על שיפור בתנאי הבסיס; ירידה בתקלות הארוכות מצביעה על כך שה-BDE עבד</div>
+    <div class="buck-grid">
+      <sc-for list="{{buckets}}" as="b" hint-placeholder-count="5">
+        <div>
+          <div class="trend-val" style="text-align: center;">{{b.n}}</div>
+          <div class="buck-wrap">
+            <div class="buck-bar" style="{{b.prevStyle}}"></div>
+            <div class="buck-bar" style="{{b.curStyle}}"></div>
+          </div>
+          <div class="buck-name">{{b.name}}</div>
+          <div class="buck-sub">{{b.tot}}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div class="leg">
+      <sc-for list="{{buckLegend}}" as="l" hint-placeholder-count="2"><span class="leg-item"><span class="leg-sw" style="{{l.style}}"></span>{{l.name}}</span></sc-for>
+    </div>
+    <div class="panel-sub" style="margin-top: 10px;">{{buckNote}}</div>
+  </div>
+
+</sc-if><sc-if value="{{isMonth}}" hint-placeholder-val="{{false}}"><div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">מגמת אמינות לאורך החודש</div>
+    <div class="panel-sub">MTBF שבועי — הזמן הממוצע בין תקלה לתקלה. מתחת לכל עמודה: ה-MTTR של אותו שבוע וחלק האחזקה המתוכננת מזמן האחזקה. זו התמונה שה-ML מביא לסקירה החודשית</div>
+    <div class="trend-grid" style="grid-template-columns: repeat(5, minmax(0,1fr));">
+      <sc-for list="{{weeks}}" as="x" hint-placeholder-count="5">
+        <div class="trend-col">
+          <div class="trend-val">{{x.val}}</div>
+          <div class="trend-bar-wrap"><div class="trend-bar" style="{{x.barStyle}}"></div></div>
+          <div class="trend-name">{{x.name}}</div>
+          <div class="trend-delta" style="{{x.deltaStyle}}">{{x.delta}}</div>
+          <div class="mt-sub">{{x.sub}}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div class="panel-sub" style="margin-top: 12px;">{{trendNote}}</div>
+  </div>
+
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">אמינות לפי תחנה — כל החודש</div>
+    <div class="panel-sub">MTBF לתחנה = זמן הייצור של הקו חלקי מספר התקלות באותה תחנה: כל כמה זמן ייצור התחנה הזו מפילה את הקו. MTTR גבוה עם מעט תקלות = כשל ציוד; MTBF נמוך עם MTTR נמוך = תנאי בסיס</div>
+    <div class="rel-row rel-head"><div>תחנה</div><div>משך מצטבר</div><div>סה"כ</div><div>תקלות</div><div>MTBF</div><div>MTTR</div></div>
+    <sc-for list="{{stations}}" as="s" hint-placeholder-count="9">
+      <div class="rel-row">
+        <div><b>{{s.name}}</b><span class="mt-sub">{{s.days}}</span></div>
+        <div class="par-track"><div class="par-fill" style="{{s.fillStyle}}"></div></div>
+        <div class="par-min">{{s.tot}}</div>
+        <div>{{s.n}}</div>
+        <div class="par-min">{{s.mtbf}}</div>
+        <div>{{s.mttr}}</div>
+      </div>
+    </sc-for>
+    <div class="panel-sub" style="margin-top: 10px;">{{stationNote}}</div>
+  </div>
+
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">איפה מרוכז זמן ההשבתה</div>
+    <div class="panel-sub">מספר האירועים בכל טווח זמן, ומתחת — כמה זמן הם לקחו וכמה אחוז מזמן השבר של החודש. זו ההחלטה בין תוכנית BDE לתקלות הגדולות לבין תחזוקה אוטונומית למיקרו-עצירות</div>
+    <div class="conc-grid">
+      <sc-for list="{{conc}}" as="c" hint-placeholder-count="5">
+        <div>
+          <div class="trend-val" style="text-align: center;">{{c.n}}</div>
+          <div class="conc-wrap"><div class="conc-bar" style="{{c.barStyle}}"></div></div>
+          <div class="conc-name">{{c.name}}</div>
+          <div class="conc-sub">{{c.tot}}</div>
+          <div class="conc-sub" style="font-weight: 700; color: #14140F;">{{c.pct}}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div class="panel-sub" style="margin-top: 12px;">{{concNote}}</div>
+  </div>
+
+  <div class="panel" style="margin-bottom: 16px;">
+    <div class="panel-title">תיק ה-BDE לחודש הבא — חמש התקלות הכבדות</div>
+    <div class="panel-sub">לפי זמן מצטבר בחודש. &quot;כרונית&quot; = חוזרת בהרבה ימים וזמן קצר לתיקון — מטפלים בשורש דרך UPS ותוכנית PM. &quot;ספוראדית&quot; = מעט מופעים וזמן ארוך — מטפלים ב-IPS ובתחקיר כשל. הפוטנציאל מחושב כהפחתה של חצי מהזמן</div>
+    <div class="bde-row rel-head"><div>#</div><div>תקלה · תחנה</div><div>זמן בחודש</div><div>מופעים</div><div>פוטנציאל</div><div>אופי ופעולה</div></div>
+    <sc-for list="{{bde}}" as="b" hint-placeholder-count="5">
+      <div class="bde-row">
+        <div class="par-rank">{{b.rank}}</div>
+        <div class="par-desc"><b>{{b.desc}}</b><span>{{b.sub}}</span></div>
+        <div class="par-min">{{b.tot}}</div>
+        <div>{{b.n}}</div>
+        <div class="bde-gain">{{b.gain}}</div>
+        <div class="rec-tag" style="{{b.tagStyle}}">{{b.tag}}</div>
+      </div>
+    </sc-for>
+    <div class="panel-sub" style="margin-top: 12px;">{{bdeNote}}</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">אחזקה מתוכננת מול שבר — לאורך החודש</div>
+    <div class="panel-sub">כמה מזמן האחזקה היה מתוכנן וכמה היה תיקון חירום אחרי שבר. המדד ב-IWS הוא עמידה בתוכנית ה-PM ומעבר הדרגתי מהאדום לכחול</div>
+    <sc-for list="{{pmWeeks}}" as="p" hint-placeholder-count="5">
+      <div class="pmw-row">
+        <div><b>{{p.name}}</b><span class="mt-sub">{{p.sub}}</span></div>
+        <div class="split-bar"><sc-for list="{{p.segs}}" as="s" hint-placeholder-count="2"><div class="split-seg" style="{{s.style}}">{{s.label}}</div></sc-for></div>
+        <div class="par-min">{{p.pct}}</div>
+        <div class="par-cumtxt">{{p.days}}</div>
+      </div>
+    </sc-for>
+    <div class="panel-sub" style="margin-top: 12px;">{{pmNote}}</div>
+  </div>
+
+</sc-if></div></template>
 <script src="./api.js"></script>
 <script src="./router.js"></script>
 <script src="./engine.js"></script>
@@ -908,6 +1206,7 @@
 <script src="./app.js"></script>
 <script src="./component.js"></script>
 <script src="./pl.js"></script>
+<script src="./ml.js"></script>
 <script src="./settings.js"></script>
 <script src="./upload.js"></script>
 </body>

@@ -173,6 +173,12 @@
       if (!plComp) plComp = mount(plRoot, document.getElementById('view-pl'), {}, window.OEE_PL.Component);
     });
 
+    // Maintenance Lead screen (equipment reliability for one line)
+    var mlComp = null, mlRoot = document.getElementById('ml-root');
+    window.OEE_ROUTER.register('#/ml', mlRoot, 'Maintenance Lead — אמינות הציוד', function () {
+      if (!mlComp) mlComp = mount(mlRoot, document.getElementById('view-ml'), {}, window.OEE_ML.Component);
+    });
+
     var llRoot = document.getElementById('ll-root');
     window.OEE_ROUTER.register('#/ll', llRoot, 'Line Lead — תצוגת אגף', function () {
       if (!llComp) llComp = mount(llRoot, document.getElementById('view-ll'), { scope: 'dept' });
@@ -198,6 +204,7 @@
         if (comp) comp.start(); else start();
         if (llComp) llComp.start();
         if (plComp) { window.OEE_PL.clearCache(); plComp.start(); }
+        if (mlComp) { window.OEE_ML.clearCache(); mlComp.start(); }
       });
     };
 

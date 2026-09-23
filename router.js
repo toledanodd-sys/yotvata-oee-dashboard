@@ -40,14 +40,6 @@
     if (page && page.onShow) page.onShow();
   }
 
-  // role screens still being specified: a placeholder page each
-  document.addEventListener('DOMContentLoaded', function () {
-    [['#/ml', 'ml-root', 'Maintenance Lead — בשלבי אפיון']].forEach(function (x) {
-      var el = document.getElementById(x[1]);
-      if (el) pages[x[0]] = { el: el, role: x[2] };
-    });
-  });
-
   window.OEE_ROUTER = {
     register: function (hash, el, role, onShow, onLeave) {
       pages[hash] = { el: el, role: role, onShow: onShow, onLeave: onLeave };
