@@ -94,14 +94,31 @@
     if (this._rerender) this._rerender(); else rerender();
   };
 
+  function currentScreen(root) {
+    var el = root.__oeeCurrentScreen;
+    if (!el || !root.contains(el)) {
+      el = document.createElement('div');
+      el.className = 'oee-current-screen';
+      root.appendChild(el);
+      root.__oeeCurrentScreen = el;
+    }
+    return el;
+  }
+
+  function attachIws(root, role) {
+    if (window.OEE_IWS) window.OEE_IWS.attach(root, role);
+  }
+
   // one screen = one component instance rendered from one template into one root
-  function mount(root, tpl, props, Ctor) {
+  function mount(root, tpl, props, Ctor, role) {
     var comp = new (Ctor || window.Component)(props || {});
     comp._rerender = function () {
       var out = [];
       renderChildren(tpl, comp.renderVals(), out);
-      root.textContent = '';
-      for (var i = 0; i < out.length; i++) root.appendChild(out[i]);
+      var screen = currentScreen(root);
+      screen.textContent = '';
+      for (var i = 0; i < out.length; i++) screen.appendChild(out[i]);
+      attachIws(root, role);
     };
     comp._rerender();
     comp.start();
@@ -158,30 +175,35 @@
       if (!comp) return;
       var out = [];
       renderChildren(tpl, comp.renderVals(), out);
-      root.textContent = '';
-      for (var i = 0; i < out.length; i++) root.appendChild(out[i]);
+      var screen = currentScreen(root);
+      screen.textContent = '';
+      for (var i = 0; i < out.length; i++) screen.appendChild(out[i]);
+      attachIws(root, 'pm');
     };
 
     var llComp = null;
     function start() {
-      comp = mount(root, tpl, {});
+      comp = mount(root, tpl, {}, null, 'pm');
     }
     // Line Lead screen (same screen scoped to one department) — mounted the first time it is opened
     // Process Lead screen (loss analysis for one line)
     var plComp = null, plRoot = document.getElementById('pl-root');
     window.OEE_ROUTER.register('#/pl', plRoot, 'Process Lead — ניתוח הפסדים', function () {
-      if (!plComp) plComp = mount(plRoot, document.getElementById('view-pl'), {}, window.OEE_PL.Component);
+      if (!plComp) plComp = mount(plRoot, document.getElementById('view-pl'), {}, window.OEE_PL.Component, 'pl');
+      else attachIws(plRoot, 'pl');
     });
 
     // Maintenance Lead screen (equipment reliability for one line)
     var mlComp = null, mlRoot = document.getElementById('ml-root');
     window.OEE_ROUTER.register('#/ml', mlRoot, 'Maintenance Lead — אמינות הציוד', function () {
-      if (!mlComp) mlComp = mount(mlRoot, document.getElementById('view-ml'), {}, window.OEE_ML.Component);
+      if (!mlComp) mlComp = mount(mlRoot, document.getElementById('view-ml'), {}, window.OEE_ML.Component, 'ml');
+      else attachIws(mlRoot, 'ml');
     });
 
     var llRoot = document.getElementById('ll-root');
     window.OEE_ROUTER.register('#/ll', llRoot, 'Line Lead — תצוגת אגף', function () {
-      if (!llComp) llComp = mount(llRoot, document.getElementById('view-ll'), { scope: 'dept' });
+      if (!llComp) llComp = mount(llRoot, document.getElementById('view-ll'), { scope: 'dept' }, null, 'll');
+      else attachIws(llRoot, 'll');
     });
 
     function refreshLive() {
@@ -201,6 +223,7 @@
       refreshLive().then(function () {
         // reload targets, weights, rules and uploaded data; the component keeps its period / tab state
         if (window.OEE_DASH) window.OEE_DASH.invalidate();
+        if (window.OEE_IWS) window.OEE_IWS.refresh();
         if (comp) comp.start(); else start();
         if (llComp) llComp.start();
         if (plComp) { window.OEE_PL.clearCache(); plComp.start(); }
