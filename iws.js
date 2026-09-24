@@ -47,7 +47,7 @@
     step: function (t, k, n) { return t === 'day' ? addDays(k, n) : t === 'week' ? addDays(k, 7 * n) : addMonths(k, n); },
     label: function (t, k) {
       if (t === 'day') { var p = k.split('-'); return p[2] + '/' + p[1] + '/' + p[0] + ' · יום ' + WD[parseIso(k).getUTCDay()]; }
-      if (t === 'week') { var e = addDays(k, 6); return 'שבוע ' + k.slice(8) + '/' + k.slice(5, 7) + '–' + e.slice(8) + '/' + e.slice(5, 7); }
+      if (t === 'week') { var e = addDays(k, 6); return 'שבוע ' + (Math.floor(daysBetween(weekStart(e.slice(0, 4) + '-01-01'), k) / 7) + 1) + ' · <span dir="ltr">' + k.slice(8) + '/' + k.slice(5, 7) + '–' + e.slice(8) + '/' + e.slice(5, 7) + '</span>'; }
       var q = k.split('-'); return MONTHS[+q[1] - 1] + ' ' + q[0];
     },
     short: function (t, k) { return t === 'day' ? WD[parseIso(k).getUTCDay()] + ' ' + k.slice(8) + '/' + k.slice(5, 7) : k.slice(8) + '/' + k.slice(5, 7); }
@@ -721,7 +721,11 @@
     ctl.bar = bar; ctl.root = root;
     bar.addEventListener('click', function (e) { var b = e.target.closest('[data-mode]'); if (b) setMode(ctl, b.getAttribute('data-mode')); });
     root.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-period],[data-step],[data-dept],[data-mid]'); if (!b) return;
+      var b = e.target.closest('[data-period],[data-step],[data-dept],[data-mid],[data-pick-open]'); if (!b || b.disabled) return;
+      if (b.hasAttribute('data-pick-open')) {
+        if (window.OEE_PICKER && INDEX) window.OEE_PICKER.open({ type: ctl.st.t, value: ctl.st.k, keys: INDEX[ctl.st.t], onPick: function (k) { ctl.st.k = k; lsSet('oee_iws_state_' + ctl.role, ctl.st); render(ctl); } });
+        return;
+      }
       if (b.hasAttribute('data-period')) { ctl.st.t = b.getAttribute('data-period'); ctl.st.k = ctl.opts.getKey ? ctl.opts.getKey(ctl.st.t) : null; }
       if (b.hasAttribute('data-step')) { var list = INDEX[ctl.st.t], i = list.indexOf(ctl.st.k) + Number(b.getAttribute('data-step')); if (i < 0 || i >= list.length) return; ctl.st.k = list[i]; }
       if (b.hasAttribute('data-dept')) { ctl.st.dept = b.getAttribute('data-dept'); ctl.st.mid = null; }
@@ -756,9 +760,10 @@
       root.innerHTML = '<div class="iws-head"><div class="iws-title">' + VIEW_NAME[ctl.view] + ' <span class="iws-pill iws-p-std">' + PNAME[st.t] + '</span></div>' +
         '<div class="iws-q">השאלה של המסך: <b>' + QUESTION[ctl.view][st.t] + '</b></div>' +
         '<div class="iws-ctrl"><div class="iws-seg iws-seg-light">' + ['day', 'week', 'month'].map(function (x) { return '<button type="button" data-period="' + x + '" aria-pressed="' + (x === st.t) + '">' + PNAME[x] + '</button>'; }).join('') + '</div>' +
-        '<div class="iws-nav"><button type="button" data-step="-1" ' + (pos > 0 ? '' : 'disabled') + ' aria-label="תקופה קודמת">›</button><span>' + CAL.label(st.t, st.k) + '</span><button type="button" data-step="1" ' + (pos < list.length - 1 ? '' : 'disabled') + ' aria-label="תקופה הבאה">‹</button></div>' +
-        '<span class="iws-pill ' + (M.official ? 'iws-p-ok' : 'iws-p-ips') + '">' + (M.official ? 'רשמי · דוח ' + PNAME[st.t] + ' מה-MES' : (st.t === 'day' ? 'אין דוח רשמי ליום' : 'מחושב מהדוחות היומיים')) + '</span>' +
-        '<span class="iws-legend-src"><i class="sw-demo"></i>מקווקו = אין עדיין מקור נתונים</span></div></div>' + v.html;
+        (window.OEE_PICKER ? window.OEE_PICKER.barHtml(CAL.label(st.t, st.k), pos > 0, pos < list.length - 1, { prev: 'data-step="-1"', next: 'data-step="1"', open: 'data-pick-open' })
+          : '<div class="iws-nav"><button type="button" data-step="-1" ' + (pos > 0 ? '' : 'disabled') + ' aria-label="תקופה קודמת">›</button><span>' + CAL.label(st.t, st.k) + '</span><button type="button" data-step="1" ' + (pos < list.length - 1 ? '' : 'disabled') + ' aria-label="תקופה הבאה">‹</button></div>') +
+        '<div class="iws-srcrow"><span class="iws-pill ' + (M.official ? 'iws-p-ok' : 'iws-p-ips') + '">' + (M.official ? 'רשמי · דוח ' + PNAME[st.t] + ' מה-MES' : (st.t === 'day' ? 'אין דוח רשמי ליום' : 'מחושב מהדוחות היומיים')) + '</span>' +
+        '<span class="iws-legend-src"><i class="sw-demo"></i>מקווקו = אין עדיין מקור נתונים</span></div></div></div>' + v.html;
       root.querySelectorAll('[data-tree]').forEach(function (el) { icicle(el, v.trees[+el.getAttribute('data-tree')]); });
     }).catch(function (e) {
       root.innerHTML = '<div class="iws-loading">שגיאה בטעינת תצוגת ה-IWS: ' + esc(e && e.message ? e.message : e) + '</div>';
@@ -772,8 +777,9 @@
     var s = document.createElement('style'); s.id = 'iws-css';
     s.textContent = [
       '.iws-on > :not(.iws-switch):not(.iws-root){display:none !important}',
-      '.iws-root{display:none}.iws-on > .iws-root{display:block}',
-      '.iws-switch{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;margin:0 0 10px;border:1px solid #BFD6EE;background:#EEF5FC;border-radius:12px;font-size:13px;color:#23476B}',
+      '.iws-root{display:none;min-width:0;max-width:100%;overflow-x:hidden}.iws-on > .iws-root{display:block}',
+      '.iws-on{min-width:0}',
+      '.iws-switch{box-sizing:border-box;max-width:100%;min-width:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;margin:0 0 10px;border:1px solid #BFD6EE;background:#EEF5FC;border-radius:12px;font-size:13px;color:#23476B}',
       '.iws-switch .lbl{font-weight:600}',
       '.iws-seg{display:inline-flex;background:#fff;border:1px solid #D8E0E8;border-radius:9px;padding:3px;gap:2px}',
       '.iws-seg button{border:0;background:transparent;color:#4A5A6B;padding:6px 13px;border-radius:7px;font:inherit;font-size:13px;cursor:pointer}',
@@ -782,7 +788,8 @@
       '.iws-root{color:#16202A;font-size:14px;line-height:1.45}',
       '.iws-root *{box-sizing:border-box}',
       '.iws-head{margin-bottom:12px}.iws-title{font-size:17px;font-weight:700;margin-bottom:2px}.iws-q{color:#4A5A6B;margin-bottom:8px}.iws-q b{color:#16202A}',
-      '.iws-ctrl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}',
+      '.iws-ctrl{display:flex;flex-direction:column;align-items:stretch;gap:8px}.iws-ctrl>.iws-seg{align-self:flex-start}',
+      '.iws-srcrow{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}',
       '.iws-nav{display:inline-flex;align-items:center;gap:6px;font-weight:600}.iws-nav button{border:1px solid #D8E0E8;background:#fff;border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer}.iws-nav button:disabled{opacity:.35;cursor:default}',
       '.iws-legend-src{font-size:12px;color:#6D5BA8}.sw-demo{display:inline-block;width:14px;height:10px;border-radius:2px;vertical-align:middle;margin-inline-end:5px;background:repeating-linear-gradient(135deg,#B7ABE0 0 3px,#6D5BA8 3px 6px)}',
       '.iws-loading{padding:40px;text-align:center;color:#8393A3}',

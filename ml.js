@@ -622,8 +622,21 @@
     return function () {
       var t = self.state.period, list = D.index()[t], i = list.indexOf(self.state.keys[t]) + dir;
       if (i < 0 || i >= list.length) return;
-      self.state.keys[t] = list[i];
-      self.load();
+      self.setPeriodKey(list[i]);
+    };
+  };
+  MLComponent.prototype.setPeriodKey = function (key) {
+    var t = this.state.period, list = D.index()[t];
+    if (list.indexOf(key) < 0 || this.state.keys[t] === key) return;
+    this.state.keys[t] = key;
+    this.load();
+  };
+  MLComponent.prototype.openPeriodPicker = function () {
+    var self = this;
+    return function () {
+      var t = self.state.period, list = D.index()[t];
+      if (window.OEE_PICKER) window.OEE_PICKER.open({ type: t, value: self.state.keys[t], keys: list,
+        onPick: function (key) { self.setPeriodKey(key); } });
     };
   };
 
@@ -645,7 +658,7 @@
       machineChips: machines.map(function (m) { return { name: m.name, style: m.id === st.machineId ? 'background: #1c2b45; color: #FFFFFF;' : '', pick: this.pickMachine(m.id) }; }, this),
       subTitle: (mach ? mach.name : '') + (deptName ? ' · אגף ' + deptName : '') + (periodTxt ? ' · ' + periodTxt : ''),
       periodLabel: key ? D.cal.label(t, key) : '—',
-      prevFn: this.step(-1), nextFn: this.step(1),
+      prevFn: this.step(-1), nextFn: this.step(1), openPeriodFn: this.openPeriodPicker(),
       prevStyle: pos > 0 ? '' : NAV_OFF, nextStyle: pos >= 0 && pos < list.length - 1 ? '' : NAV_OFF,
       srcNote: { day: 'תקלות שבר = סטטוס "עצירת השבתה" בקבוצה "תקלה" לפי כללי הסיווג. זמן התיקון הוא משך האירוע כפי שדווח ב-MES. MTBF = זמן ייצור חלקי מספר התקלות',
         week: 'שבוע ייצור שבת–שישי לפי Date_Dim. אחזקה מתוכננת = אירועי "אחזקה מתוכננת / מונעת". ההשוואה היא מול השבוע הקודם שהועלה',

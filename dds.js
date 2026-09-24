@@ -293,8 +293,12 @@
     if (!ST.canEdit) h += '<div class="dds-ro">צפייה בלבד. כדי לעדכן את ה-DDS צריך להתחבר כמשתמש מורשה.</div>';
     h += '<div class="dds-bar"><div class="dds-seg" role="group" aria-label="סוג DDS"><button type="button" data-view="day" aria-pressed="' + (S.view === 'day') + '">DDS יומי</button><button type="button" data-view="week" aria-pressed="' + (S.view === 'week') + '">DDS שבועי</button></div>';
     var list = S.view === 'day' ? ST.days : ST.weeks, cur = S.view === 'day' ? S.day : S.wk, pos = list.indexOf(cur);
-    var label = !cur ? 'אין דוחות' : S.view === 'day' ? 'DDS ' + dmy(addDays(cur, 1)) + ' · סוקר את ' + dm(cur) + ' (' + wd(cur) + ')' : 'שבוע ' + weekNo(cur) + ' · <span dir="ltr">' + dm(cur) + '–' + dm(addDays(cur, 6)) + '</span>';
-    h += '<div class="dds-nav"><button type="button" data-nav="-1" aria-label="קודם"' + (pos > 0 ? '' : ' disabled') + '>›</button><span>' + label + '</span><button type="button" data-nav="1" aria-label="הבא"' + (pos >= 0 && pos < list.length - 1 ? '' : ' disabled') + '>‹</button></div></div>';
+    var label = !cur ? 'אין דוחות' : S.view === 'day' ? dmy(cur) + ' · ' + wd(cur) : 'שבוע ' + weekNo(cur) + ' · <span dir="ltr">' + dm(cur) + '–' + dm(addDays(cur, 6)) + '</span>';
+    var canP = pos > 0, canN = pos >= 0 && pos < list.length - 1;
+    h += (window.OEE_PICKER ? window.OEE_PICKER.barHtml(label, canP, canN, { prev: 'data-nav="-1"', next: 'data-nav="1"', open: 'data-pick-open' })
+      : '<div class="dds-nav"><button type="button" data-nav="-1" aria-label="קודם"' + (canP ? '' : ' disabled') + '>›</button><span>' + label + '</span><button type="button" data-nav="1" aria-label="הבא"' + (canN ? '' : ' disabled') + '>‹</button></div>');
+    if (cur) h += '<div class="dds-sub">' + (S.view === 'day' ? 'ה-DDS של ' + dmy(addDays(cur, 1)) + ' סוקר את יום הייצור הזה' : 'ה-DDS השבועי סוקר את שבוע הייצור הזה') + '</div>';
+    h += '</div>';
     h += '<div class="dds-chips" role="group" aria-label="אגף">' + ST.depts.map(function (d) { return '<button type="button" class="dds-chip" data-dept="' + d.id + '" aria-pressed="' + (d.id === S.dept) + '">אגף ' + esc(d.name) + '</button>'; }).join('') + '</div>';
     if (ms.length > 1) h += '<div class="dds-chips" role="group" aria-label="קו"><button type="button" class="dds-chip sm" data-mid="" aria-pressed="' + (!S.mid) + '">כל האגף</button>' + ms.map(function (m) { return '<button type="button" class="dds-chip sm" data-mid="' + m.id + '" aria-pressed="' + (S.mid === m.id) + '">' + esc(m.name) + '</button>'; }).join('') + '</div>';
     var names = S.view === 'day' ? ['הכנה וסיור', 'הצגת נתונים', 'משימות'] : ['איסוף והכנה', 'נתונים ומגמות', 'משימות'], step = S.step[S.view];
@@ -557,6 +561,11 @@
     var d = b.dataset;
     if (d.view) { S.view = d.view; persist(); render(); return; }
     if (d.step) { S.step[S.view] = +d.step; persist(); render(); if (ROOT.scrollIntoView) ROOT.scrollIntoView({ block: 'start' }); return; }
+    if (b.hasAttribute('data-pick-open')) {
+      if (window.OEE_PICKER) window.OEE_PICKER.open({ type: S.view === 'day' ? 'day' : 'week', value: S.view === 'day' ? S.day : S.wk, keys: S.view === 'day' ? ST.days : ST.weeks,
+        onPick: function (k) { if (S.view === 'day') S.day = k; else S.wk = k; render(); } });
+      return;
+    }
     if (d.nav) { var list = S.view === 'day' ? ST.days : ST.weeks, k = S.view === 'day' ? 'day' : 'wk', i = list.indexOf(S[k]) + Number(d.nav); if (i >= 0 && i < list.length) { S[k] = list[i]; render(); } return; }
     if (d.dept) { S.dept = Number(d.dept); S.mid = null; persist(); render(); return; }
     if ('mid' in d) { S.mid = d.mid ? Number(d.mid) : null; persist(); render(); return; }
@@ -617,12 +626,12 @@
     if (document.getElementById('dds-css')) return;
     var s = document.createElement('style'); s.id = 'dds-css';
     s.textContent = [
-      '.dds-root{color:#16202A;font-size:14px;line-height:1.45;max-width:1000px;margin:0 auto}',
+      '.dds-root{color:#16202A;font-size:14px;line-height:1.45;max-width:1000px;margin:0 auto;min-width:0;overflow-x:hidden}',
       '.dds-root *,.dds-sheet *{box-sizing:border-box}',
       '.dds-root button,.dds-root input,.dds-root select,.dds-sheet button,.dds-sheet input,.dds-sheet select{font:inherit}',
       '.dds-root button:focus-visible,.dds-root input:focus-visible,.dds-root select:focus-visible,.dds-sheet button:focus-visible,.dds-sheet input:focus-visible,.dds-sheet select:focus-visible{outline:2px solid #2a78d6;outline-offset:2px}',
       '.dds-ro{background:#FEF3C7;color:#92400E;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:13px}',
-      '.dds-bar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-bottom:10px}',
+      '.dds-bar{display:flex;flex-direction:column;align-items:stretch;gap:6px;margin-bottom:10px}.dds-bar>.dds-seg{align-self:flex-start}',
       '.dds-seg{display:inline-flex;background:#fff;border:1px solid #D8E0E8;border-radius:10px;padding:3px;gap:2px}',
       '.dds-seg button{border:0;background:none;color:#4A5A6B;padding:6px 14px;border-radius:8px;cursor:pointer}',
       '.dds-seg button[aria-pressed="true"]{background:#1c2b45;color:#fff;font-weight:600}',

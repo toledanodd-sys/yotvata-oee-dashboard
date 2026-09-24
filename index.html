@@ -53,7 +53,7 @@
         </div>
         <div class="pnav">
           <button class="pnav-btn" type="button" aria-label="תקופה קודמת" style="{{prevStyle}}" onClick="{{prevFn}}">→</button>
-          <span class="pnav-label">{{periodLabel}}</span>
+          <button class="pnav-label" type="button" aria-label="בחירת תקופה" onClick="{{openPeriodFn}}">{{periodLabel}}</button>
           <button class="pnav-btn" type="button" aria-label="תקופה הבאה" style="{{nextStyle}}" onClick="{{nextFn}}">←</button>
         </div>
         <span class="psrc" style="{{srcStyle}}">{{srcLabel}}</span>
@@ -354,7 +354,7 @@
         </div>
         <div class="pnav">
           <button class="pnav-btn" type="button" aria-label="תקופה קודמת" style="{{prevStyle}}" onClick="{{prevFn}}">→</button>
-          <span class="pnav-label">{{periodLabel}}</span>
+          <button class="pnav-label" type="button" aria-label="בחירת תקופה" onClick="{{openPeriodFn}}">{{periodLabel}}</button>
           <button class="pnav-btn" type="button" aria-label="תקופה הבאה" style="{{nextStyle}}" onClick="{{nextFn}}">←</button>
         </div>
         <span class="psrc" style="{{srcStyle}}">{{srcLabel}}</span>
@@ -647,7 +647,7 @@
     </div>
     <div class="pnav">
       <button class="pnav-btn" type="button" aria-label="תקופה קודמת" style="{{prevStyle}}" onClick="{{prevFn}}">→</button>
-      <span class="pnav-label">{{periodLabel}}</span>
+      <button class="pnav-label" type="button" aria-label="בחירת תקופה" onClick="{{openPeriodFn}}">{{periodLabel}}</button>
       <button class="pnav-btn" type="button" aria-label="תקופה הבאה" style="{{nextStyle}}" onClick="{{nextFn}}">←</button>
     </div>
     <span class="psrc" style="{{srcStyle}}">{{srcLabel}}</span>
@@ -921,7 +921,7 @@
     </div>
     <div class="pnav">
       <button class="pnav-btn" type="button" aria-label="תקופה קודמת" style="{{prevStyle}}" onClick="{{prevFn}}">→</button>
-      <span class="pnav-label">{{periodLabel}}</span>
+      <button class="pnav-label" type="button" aria-label="בחירת תקופה" onClick="{{openPeriodFn}}">{{periodLabel}}</button>
       <button class="pnav-btn" type="button" aria-label="תקופה הבאה" style="{{nextStyle}}" onClick="{{nextFn}}">←</button>
     </div>
     <span class="psrc" style="{{srcStyle}}">{{srcLabel}}</span>
@@ -1208,6 +1208,7 @@
 <script src="./component.js"></script>
 <script src="./pl.js"></script>
 <script src="./ml.js"></script>
+<script src="./picker.js"></script>
 <script src="./iws.js"></script>
 <script src="./dds.js"></script>
 <script src="./settings.js"></script>

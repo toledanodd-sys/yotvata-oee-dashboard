@@ -53,12 +53,24 @@ class Component extends DCLogic {
     }).catch((e) => this.setState({ loading: false, error: e.message || String(e) }));
   }
   pickPeriod(p) { return () => { if (this.state.period !== p) { this.state.period = p; this.state.view = 'home'; this.load(); } }; }
+  setPeriodKey(key) {
+    const t = this.state.period, list = window.OEE_DASH.index()[t];
+    if (list.indexOf(key) < 0 || this.state.keys[t] === key) return;
+    this.state.keys[t] = key; this.load();
+  }
   stepPeriod(dir) {
     return () => {
       const t = this.state.period, list = window.OEE_DASH.index()[t], i = list.indexOf(this.state.keys[t]);
       const j = i + dir;
       if (i < 0 || j < 0 || j >= list.length) return;
-      this.state.keys[t] = list[j]; this.load();
+      this.setPeriodKey(list[j]);
+    };
+  }
+  openPeriodPicker() {
+    return () => {
+      const t = this.state.period, list = window.OEE_DASH.index()[t], self = this;
+      if (window.OEE_PICKER) window.OEE_PICKER.open({ type: t, value: this.state.keys[t], keys: list,
+        onPick: function (key) { self.setPeriodKey(key); } });
     };
   }
 
@@ -107,7 +119,7 @@ class Component extends DCLogic {
 
     const base = {
       deptName: st.dept || '', deptChips,
-      isHome: st.view === 'home', isDrill: st.view === 'drill', periods, prevFn: this.stepPeriod(-1), nextFn: this.stepPeriod(1), prevStyle, nextStyle,
+      isHome: st.view === 'home', isDrill: st.view === 'drill', periods, prevFn: this.stepPeriod(-1), nextFn: this.stepPeriod(1), openPeriodFn: this.openPeriodPicker(), prevStyle, nextStyle,
       periodLabel: st.keys[period] ? D.cal.label(period, st.keys[period]) : '—',
       shareView: st.shareView, onBack: this.goHome(),
       setShareMachineFn: this.setShareView('machine'), setShareDeptFn: this.setShareView('dept'), setShareSkuFn: this.setShareView('sku'),
