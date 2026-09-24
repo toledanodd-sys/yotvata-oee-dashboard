@@ -127,7 +127,7 @@
     render();
     return API.rpc('am_i_admin').then(function (isAdmin) {
       if (!isAdmin) { S.mode = 'notadmin'; render(); return; }
-      return loadData().then(function () { S.mode = 'ready'; render(); window.OEE_ROUTER.refreshAdminUI(); });
+      return loadData().then(function () { S.mode = 'ready'; render(); window.OEE_ROUTER.refreshAdminUI(); if (window.OEE_DDS) window.OEE_DDS.refresh(); });
     }).catch(function (e) {
       S.mode = 'login';
       S.authMsg = e.message;
@@ -588,7 +588,7 @@
     var d = S.data;
 
     if (act === 'toggle-signup') { S.mode = S.mode === 'signup' ? 'login' : 'signup'; S.authMsg = ''; render(); return; }
-    if (act === 'logout') { API.signOut().then(function () { S.mode = 'login'; S.data = null; S.form = null; render(); window.OEE_ROUTER.refreshAdminUI(); }); return; }
+    if (act === 'logout') { API.signOut().then(function () { S.mode = 'login'; S.data = null; S.form = null; render(); window.OEE_ROUTER.refreshAdminUI(); if (window.OEE_DDS) window.OEE_DDS.refresh(); }); return; }
     if (act === 'tab') { S.tab = btn.getAttribute('data-tab'); S.form = null; render(); return; }
     if (act === 'cancel') { S.form = null; render(); return; }
 

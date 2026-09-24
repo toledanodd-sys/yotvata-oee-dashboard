@@ -558,7 +558,16 @@
     ms.forEach(function (m) { Object.keys(m.perDay).forEach(function (d) { var key = M.t === 'month' ? weekStart(d) : d, b = buckets[key] = buckets[key] || { prod: 0, fails: 0 }; b.prod += m.perDay[d].prod; b.fails += m.perDay[d].fails; }); });
     var keys = Object.keys(buckets).sort();
     if (!keys.length) return '<div class="iws-empty">אין נתונים</div>';
-    var rows = keys.map(function (x) { var b = buckets[x]; return { l: (M.t === 'month' ? 'שבוע ' : '') + CAL.short(M.t === 'month' ? 'week' : 'day', x), v: b.fails ? b.prod / b.fails : 0, c: C.pdt, txt: b.fails ? fm(b.prod / b.fails) + ' · ' + b.fails + ' תקלות' : 'אין תקלות' }; });
+    var rows = keys.map(function (x) {
+      var b = buckets[x], l, partial = false;
+      if (M.t === 'month') {
+        // a week that crosses the month edge: only its days inside the month are counted — say so in the label
+        var ws = x < M.r.from ? M.r.from : x, we = addDays(x, 6) > M.r.to ? M.r.to : addDays(x, 6);
+        partial = ws !== x || we !== addDays(x, 6);
+        l = 'שבוע ' + (Math.floor(daysBetween(weekStart(addDays(x, 6).slice(0, 4) + '-01-01'), x) / 7) + 1) + (partial ? ' · ' + ws.slice(8) + '/' + ws.slice(5, 7) + '–' + we.slice(8) + '/' + we.slice(5, 7) + ' בלבד' : '');
+      } else l = CAL.short('day', x);
+      return { l: l, v: b.fails ? b.prod / b.fails : 0, c: partial ? '#C9CFDA' : C.pdt, txt: b.fails ? fm(b.prod / b.fails) + ' · ' + b.fails + ' תקלות' : 'אין תקלות', title: partial ? 'שבוע חלקי — רק הימים שבתוך החודש' : '' };
+    });
     return hbars(rows);
   }
 

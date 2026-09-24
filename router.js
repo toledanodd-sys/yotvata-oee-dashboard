@@ -18,7 +18,7 @@
     var role = document.querySelector('.appbar-role');
     if (role) role.textContent = page ? page.role : 'מנהל ייצור — תצוגת מפעל';
     // role switch: plant view (#/) or department view (#/ll); the choice is remembered for the next launch
-    var ROLES = { plant: '#/', ll: '#/ll', pl: '#/pl', ml: '#/ml' };
+    var ROLES = { plant: '#/', ll: '#/ll', pl: '#/pl', ml: '#/ml', dds: '#/dds' };
     var cur = !page ? 'plant' : null;
     Object.keys(ROLES).forEach(function (r) { if (ROLES[r] === hash && r !== 'plant') cur = r; });
     Object.keys(ROLES).forEach(function (r) {
@@ -48,7 +48,7 @@
       if (!location.hash) {
         var saved = null;
         try { saved = localStorage.getItem('oee_role_v1'); } catch (e) { /* private mode */ }
-        if (saved === 'll' || saved === 'pl' || saved === 'ml') history.replaceState(null, '', '#/' + saved);
+        if (saved === 'll' || saved === 'pl' || saved === 'ml' || saved === 'dds') history.replaceState(null, '', '#/' + saved);
       }
       window.addEventListener('hashchange', route);
       route();

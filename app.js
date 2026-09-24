@@ -206,6 +206,11 @@
       else attachIws(llRoot, 'll');
     });
 
+    var ddsRoot = document.getElementById('dds-root');
+    window.OEE_ROUTER.register('#/dds', ddsRoot, 'DDS', function () {
+      if (window.OEE_DDS) window.OEE_DDS.attach(ddsRoot);
+    });
+
     function refreshLive() {
       setStatus('wait', 'מתחבר…');
       return loadLiveSettings().then(function (live) {
@@ -224,6 +229,7 @@
         // reload targets, weights, rules and uploaded data; the component keeps its period / tab state
         if (window.OEE_DASH) window.OEE_DASH.invalidate();
         if (window.OEE_IWS) window.OEE_IWS.refresh();
+        if (window.OEE_DDS) window.OEE_DDS.refresh();
         if (comp) comp.start(); else start();
         if (llComp) llComp.start();
         if (plComp) { window.OEE_PL.clearCache(); plComp.start(); }
